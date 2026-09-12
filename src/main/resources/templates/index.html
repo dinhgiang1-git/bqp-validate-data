@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Kiểm Toán Tính Chế Độ Chính Sách Quân Đội</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --navy-900: #0f172a;
+            --navy-800: #1e293b;
+            --navy-700: #334155;
+            --slate-600: #475569;
+            --slate-500: #64748b;
+            --slate-400: #94a3b8;
+            --slate-200: #e2e8f0;
+            --slate-100: #f1f5f9;
+            --slate-50: #f8fafc;
+            --card-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header */
+        header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e3a8a 100%);
+            color: white;
+            padding: 1.25rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            font-size: 0.82rem;
+            color: #94a3b8;
+        }
+
+        .header-badge {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Main Container */
+        main {
+            flex: 1;
+            max-width: 1400px;
+            width: 100%;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Hero Banner */
+        .hero-banner {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--card-shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .hero-text h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy-900);
+            margin-bottom: 0.25rem;
+        }
+
+        .hero-text p {
+            font-size: 0.875rem;
+            color: var(--slate-600);
+            max-width: 750px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--navy-800);
+            border: 1px solid var(--slate-200);
+        }
+
+        .btn-secondary:hover {
+            background: var(--slate-100);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+        }
+
+        .btn-pdf:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn-excel {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-excel:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        /* 3 Upload Dropzones Section */
+        .upload-section {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .upload-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .upload-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 2px dashed var(--slate-200);
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .upload-card:hover, .upload-card.dragover {
+            border-color: var(--primary);
+            background: #f0f7ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-card.has-file {
+            border-style: solid;
+            border-color: #93c5fd;
+            background: #f8fafc;
+        }
+
+        .appendix-tag {
+            align-self: flex-start;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .tag-i1 { background: #dbeafe; color: #1e40af; }
+        .tag-i2 { background: #e0e7ff; color: #3730a3; }
+        .tag-i3 { background: #fae8ff; color: #86198f; }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--navy-900);
+            margin-bottom: 0.25rem;
+        }
+
+        .card-desc {
+            font-size: 0.8rem;
+            color: var(--slate-500);
+            margin-bottom: 1.25rem;
+            line-height: 1.4;
+        }
+
+        .dropzone-inner {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 12px;
+            background: var(--slate-50);
+            border: 1px dashed var(--slate-300);
+            transition: var(--transition);
+        }
+
+        .dropzone-inner:hover {
+            background: white;
+            border-color: var(--primary);
+        }
+
+        .drop-icon {
+            font-size: 2rem;
+            color: var(--slate-400);
+            margin-bottom: 0.75rem;
+            transition: var(--transition);
+        }
+
+        .dropzone-inner:hover .drop-icon {
+            color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-preview {
+            display: none;
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            padding: 0.75rem;
+            border: 1px solid var(--slate-200);
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            overflow: hidden;
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+            color: #ef4444;
+        }
+
+        .file-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--navy-900);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        .btn-remove {
+            background: none;
+            border: none;
+            color: var(--slate-400);
+            cursor: pointer;
+            padding: 0.25rem;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .btn-remove:hover {
+            color: var(--danger);
+        }
+
+        /* Action Launch Bar */
+        .launch-bar {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+
+        .btn-launch {
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 14px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .stat-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .icon-blue { background: #dbeafe; color: #2563eb; }
+        .icon-green { background: #d1fae5; color: #10b981; }
+        .icon-red { background: #fee2e2; color: #ef4444; }
+        .icon-amber { background: #fef3c7; color: #d97706; }
+
+        .stat-meta h3 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--slate-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-meta .stat-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--navy-900);
+            margin-top: 0.2rem;
+        }
+
+        /* Results & Downloads Card */
+        .results-container {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            display: none;
+        }
+
+        .results-header {
+            padding: 1.5rem 2rem;
+            background: #fafafa;
+            border-bottom: 1px solid var(--slate-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .download-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Tabs */
+        .tabs-nav {
+            display: flex;
+            background: var(--slate-100);
+            padding: 0.5rem 2rem 0;
+            border-bottom: 1px solid var(--slate-200);
+            gap: 0.5rem;
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--slate-600);
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: white;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        /* Table */
+        .table-responsive {
+            overflow-x: auto;
+            max-height: 600px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th {
+            background: #f8fafc;
+            color: var(--navy-900);
+            font-weight: 700;
+            padding: 0.85rem 1rem;
+            text-align: left;
+            border-bottom: 2px solid var(--slate-200);
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--slate-200);
+            color: var(--navy-800);
+        }
+
+        tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        /* Cell Error Highlight */
+        .cell-wrong {
+            background-color: #ffe4e6 !important;
+            color: #9f1239 !important;
+            font-weight: 700 !important;
+            border: 1px solid #fda4af !important;
+            border-radius: 4px;
+            padding: 0.2rem 0.4rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .badge-error { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .badge-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+        .badge-type { background: #e0e7ff; color: #3730a3; }
+
+        .money-diff-pos { color: #b91c1c; font-weight: 700; }
+        .money-diff-neg { color: #047857; font-weight: 700; }
+
+        /* Loading Spinner Overlay */
+        .spinner-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            border-top: 1px solid var(--slate-200);
+            padding: 1.5rem 2rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--slate-500);
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo-group">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div class="header-title">
+                    <h1>HỆ THỐNG KIỂM TOÁN TÍNH CHẾ ĐỘ CHÍNH SÁCH</h1>
+                    <p>Bộ Quốc Phòng • Nghị định số 178/2024/NĐ-CP & Nghị định số 177/2024/NĐ-CP</p>
+                </div>
+            </div>
+            <div class="header-badge">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Chế độ kiểm toán ngoại tuyến độc lập</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main>
+
+        <!-- Hero Actions Bar -->
+        <div class="hero-banner">
+            <div class="hero-text">
+                <h2>Rà Soát & Đối Soát Bảng Biểu Chế Độ (Hỗ trợ PDF & Excel)</h2>
+                <p>Nộp đồng thời hoặc từng phần các Phụ lục I.1 (Hưu trước tuổi), I.2 (Thôi việc), I.3 (Không tái cử) dưới dạng <b>PDF</b> hoặc <b>Excel (.xlsx, .xls)</b>. Hệ thống tự động nạp template có sẵn, chỉ bôi đỏ riêng ô bị sai và hỗ trợ xuất trả cả PDF lẫn Excel.</p>
+            </div>
+            <div class="hero-actions">
+                <button type="button" class="btn btn-secondary" onclick="loadSampleData()">
+                    <i class="fa-solid fa-bolt text-amber-500"></i> Dùng Dữ Liệu Mẫu
+                </button>
+            </div>
+        </div>
+
+        <!-- 3 Upload Zones -->
+        <form id="auditForm">
+            <div class="upload-section">
+                <!-- Dropzone I.1 -->
+                <div class="upload-card" id="cardI1">
+                    <span class="appendix-tag tag-i1">Phụ lục I.1</span>
+                    <h3 class="card-title">Nghỉ Hưu Trước Tuổi</h3>
+                    <p class="card-desc">Chế độ nghỉ hưu trước tuổi theo Nghị định số 178/2024/NĐ-CP (C1, C2, C3 trước/sau 01/07/2025).</p>
+                    
+                    <div class="dropzone-inner" onclick="document.getElementById('fileI1').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'fileI1')">
+                        <i class="fa-solid fa-file-circle-plus drop-icon"></i>
+                        <span style="font-size: 0.85rem; font-weight: 600;">Kéo thả file PDF hoặc Excel</span>
+                        <span style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">Hỗ trợ file .pdf, .xlsx, .xls</span>
+                    </div>
+                    <input type="file" id="fileI1" name="fileI1" accept=".pdf,.xlsx,.xls" class="file-input" onchange="handleFileSelected('fileI1', 'cardI1', 'previewI1')">
+                    
+                    <div class="file-preview" id="previewI1">
+                        <div class="file-info">
+                            <i class="fa-solid fa-file file-icon" id="iconI1"></i>
+                            <span class="file-name" id="nameI1">filename.pdf</span>
+                        </div>
+                        <button type="button" class="btn-remove" onclick="removeFile('fileI1', 'cardI1', 'previewI1')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dropzone I.2 -->
+                <div class="upload-card" id="cardI2">
+                    <span class="appendix-tag tag-i2">Phụ lục I.2</span>
+                    <h3 class="card-title">Phục Viên / Thôi Việc</h3>
+                    <p class="card-desc">Chế độ thôi việc theo Nghị định số 178/2024/NĐ-CP (Trợ cấp tháng, năm công tác, việc làm).</p>
+                    
+                    <div class="dropzone-inner" onclick="document.getElementById('fileI2').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'fileI2')">
+                        <i class="fa-solid fa-file-circle-plus drop-icon"></i>
+                        <span style="font-size: 0.85rem; font-weight: 600;">Kéo thả file PDF hoặc Excel</span>
+                        <span style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">Hỗ trợ file .pdf, .xlsx, .xls</span>
+                    </div>
+                    <input type="file" id="fileI2" name="fileI2" accept=".pdf,.xlsx,.xls" class="file-input" onchange="handleFileSelected('fileI2', 'cardI2', 'previewI2')">
+                    
+                    <div class="file-preview" id="previewI2">
+                        <div class="file-info">
+                            <i class="fa-solid fa-file file-icon" id="iconI2"></i>
+                            <span class="file-name" id="nameI2">filename.pdf</span>
+                        </div>
+                        <button type="button" class="btn-remove" onclick="removeFile('fileI2', 'cardI2', 'previewI2')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dropzone I.3 -->
+                <div class="upload-card" id="cardI3">
+                    <span class="appendix-tag tag-i3">Phụ lục I.3</span>
+                    <h3 class="card-title">Không Đủ Tuổi Tái Cử</h3>
+                    <p class="card-desc">Chế độ theo Nghị định số 177/2024/NĐ-CP (Trợ cấp năm nghỉ sớm, BHXH cơ sở & tăng thêm).</p>
+                    
+                    <div class="dropzone-inner" onclick="document.getElementById('fileI3').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'fileI3')">
+                        <i class="fa-solid fa-file-circle-plus drop-icon"></i>
+                        <span style="font-size: 0.85rem; font-weight: 600;">Kéo thả file PDF hoặc Excel</span>
+                        <span style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">Hỗ trợ file .pdf, .xlsx, .xls</span>
+                    </div>
+                    <input type="file" id="fileI3" name="fileI3" accept=".pdf,.xlsx,.xls" class="file-input" onchange="handleFileSelected('fileI3', 'cardI3', 'previewI3')">
+                    
+                    <div class="file-preview" id="previewI3">
+                        <div class="file-info">
+                            <i class="fa-solid fa-file file-icon" id="iconI3"></i>
+                            <span class="file-name" id="nameI3">filename.pdf</span>
+                        </div>
+                        <button type="button" class="btn-remove" onclick="removeFile('fileI3', 'cardI3', 'previewI3')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Launch Button -->
+            <div class="launch-bar">
+                <button type="button" class="btn btn-primary btn-launch" onclick="submitAudit()">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> BẮT ĐẦU RÀ SOÁT & ĐỐI SOÁT
+                </button>
+            </div>
+        </form>
+
+        <!-- Stats Section -->
+        <div class="stats-grid" id="statsGrid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-icon icon-blue">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div class="stat-meta">
+                    <h3>Tổng Hồ Sơ</h3>
+                    <div class="stat-value" id="statTotalRec">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon icon-green">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="stat-meta">
+                    <h3>Hồ Sơ Hợp Lệ</h3>
+                    <div class="stat-value" id="statValidRec" style="color: var(--success);">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon icon-red">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                </div>
+                <div class="stat-meta">
+                    <h3>Hồ Sơ Sai Lệch</h3>
+                    <div class="stat-value" id="statErrorRec" style="color: var(--danger);">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon icon-amber">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                </div>
+                <div class="stat-meta">
+                    <h3>Tổng Tiền Lệch</h3>
+                    <div class="stat-value" id="statDiffMoney" style="font-size: 1.25rem;">0 đ</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div class="results-container" id="resultsContainer">
+            <div class="results-header">
+                <div>
+                    <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--navy-900);">Kết Quả Rà Soát & Tải Báo Cáo (PDF & Excel)</h3>
+                    <p style="font-size: 0.8rem; color: var(--slate-500);">Chỉ bôi đỏ riêng ô bị sai số liệu, xuất file Excel chuẩn và PDF A3 Landscape</p>
+                </div>
+                <div class="download-actions" id="downloadActions">
+                    <!-- Dynamic PDF download buttons inserted by JS -->
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tabs-nav" id="tabsNav">
+                <button type="button" class="tab-btn active" onclick="switchTab('all')">
+                    <i class="fa-solid fa-triangle-exclamation text-red-500"></i> Tất cả hồ sơ sai lệch (<span id="tabCountAll">0</span>)
+                </button>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Họ và tên</th>
+                            <th>Tháng/Năm sinh</th>
+                            <th>Cấp bậc</th>
+                            <th>Phụ lục</th>
+                            <th>Lương tháng</th>
+                            <th>Số tháng</th>
+                            <th>Khai báo</th>
+                            <th>Tính đúng</th>
+                            <th>Chênh lệch</th>
+                            <th>Chi tiết sai lệch</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2026 Hệ Thống Rà Soát & Đối Soát Chế Độ Chính Sách Bộ Quốc Phòng • Xây dựng trên Spring Boot 3 & Spire.XLS Engine</p>
+    </footer>
+
+    <!-- Loading Spinner -->
+    <div class="spinner-overlay" id="spinnerOverlay">
+        <div class="spinner"></div>
+        <h3 style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.25rem;">Đang Bóc Tách & Đối Soát Số Liệu...</h3>
+        <p style="font-size: 0.85rem; color: #cbd5e1;">Vui lòng đợi trong giây lát</p>
+    </div>
+
+    <script>
+        let currentReport = null;
+        let activeTab = 'all';
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.parentElement.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.parentElement.classList.remove('dragover');
+        }
+
+        function handleDrop(e, inputId) {
+            e.preventDefault();
+            e.stopPropagation();
+            const card = document.getElementById(inputId).parentElement;
+            card.classList.remove('dragover');
+            
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                const input = document.getElementById(inputId);
+                
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                input.files = dataTransfer.files;
+                
+                const cardId = inputId === 'fileI1' ? 'cardI1' : (inputId === 'fileI2' ? 'cardI2' : 'cardI3');
+                const previewId = inputId === 'fileI1' ? 'previewI1' : (inputId === 'fileI2' ? 'previewI2' : 'previewI3');
+                handleFileSelected(inputId, cardId, previewId);
+            }
+        }
+
+        function handleFileSelected(inputId, cardId, previewId) {
+            const input = document.getElementById(inputId);
+            const card = document.getElementById(cardId);
+            const preview = document.getElementById(previewId);
+            const nameSpan = preview.querySelector('.file-name');
+            const iconEl = preview.querySelector('.file-icon');
+
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                nameSpan.innerText = file.name;
+                const lower = file.name.toLowerCase();
+                if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
+                    iconEl.className = 'fa-solid fa-file-excel file-icon';
+                    iconEl.style.color = '#10b981';
+                } else {
+                    iconEl.className = 'fa-solid fa-file-pdf file-icon';
+                    iconEl.style.color = '#ef4444';
+                }
+                preview.style.display = 'flex';
+                card.classList.add('has-file');
+            }
+        }
+
+        function removeFile(inputId, cardId, previewId) {
+            const input = document.getElementById(inputId);
+            const card = document.getElementById(cardId);
+            const preview = document.getElementById(previewId);
+
+            input.value = '';
+            preview.style.display = 'none';
+            card.classList.remove('has-file');
+        }
+
+        function showSpinner() {
+            document.getElementById('spinnerOverlay').style.display = 'flex';
+        }
+
+        function hideSpinner() {
+            document.getElementById('spinnerOverlay').style.display = 'none';
+        }
+
+        function formatMoney(amount) {
+            if (amount === undefined || amount === null) return "0";
+            return new Intl.NumberFormat('vi-VN').format(amount);
+        }
+
+        async function loadSampleData() {
+            showSpinner();
+            try {
+                const res = await fetch('/api/load-sample');
+                const data = await res.json();
+                if (data.error) {
+                    alert('Lỗi: ' + data.error);
+                    return;
+                }
+                renderReport(data);
+            } catch (err) {
+                alert('Lỗi kết nối máy chủ: ' + err.message);
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        async function submitAudit() {
+            const f1 = document.getElementById('fileI1').files[0];
+            const f2 = document.getElementById('fileI2').files[0];
+            const f3 = document.getElementById('fileI3').files[0];
+
+            if (!f1 && !f2 && !f3) {
+                alert('Vui lòng chọn ít nhất 1 file PDF hoặc Excel (Phụ lục I.1, I.2 hoặc I.3) để rà soát!');
+                return;
+            }
+
+            const formData = new FormData();
+            if (f1) formData.append('fileI1', f1);
+            if (f2) formData.append('fileI2', f2);
+            if (f3) formData.append('fileI3', f3);
+
+            showSpinner();
+            try {
+                const res = await fetch('/api/audit', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.error) {
+                    alert('Lỗi: ' + data.error);
+                    return;
+                }
+                renderReport(data);
+            } catch (err) {
+                alert('Lỗi khi gửi yêu cầu rà soát: ' + err.message);
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        function renderReport(report) {
+            currentReport = report;
+
+            // 1. Cập nhật Thống kê
+            document.getElementById('statTotalRec').innerText = report.totalAllRecords;
+            document.getElementById('statValidRec').innerText = report.totalAllValid;
+            document.getElementById('statErrorRec').innerText = report.totalAllErrors;
+            
+            const diffSign = (report.totalAllDifferenceMoney > 0) ? '+' : '';
+            document.getElementById('statDiffMoney').innerText = diffSign + formatMoney(report.totalAllDifferenceMoney) + ' đ';
+            document.getElementById('statDiffMoney').style.color = (report.totalAllErrors > 0) ? 'var(--danger)' : 'var(--success)';
+
+            document.getElementById('statsGrid').style.display = 'grid';
+
+            // 2. Render các nút Download PDF
+            renderDownloadActions(report);
+
+            // 3. Render Tabs
+            renderTabs(report);
+
+            // 4. Render Table
+            renderTableData(activeTab);
+
+            document.getElementById('resultsContainer').style.display = 'block';
+            document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderDownloadActions(report) {
+            const container = document.getElementById('downloadActions');
+            let html = '';
+
+            report.appendixResults.forEach(app => {
+                let code = '';
+                let label = '';
+                const typeName = app.appendixType.name || app.appendixType;
+                if (typeName === 'PHU_LUC_I1') {
+                    code = 'i1';
+                    label = 'Phụ lục I.1';
+                } else if (typeName === 'PHU_LUC_I2') {
+                    code = 'i2';
+                    label = 'Phụ lục I.2';
+                } else if (typeName === 'PHU_LUC_I3') {
+                    code = 'i3';
+                    label = 'Phụ lục I.3';
+                }
+
+                if (code) {
+                    html += `
+                        <a href="/download/excel/${code}?reportId=${report.reportId}" class="btn btn-excel">
+                            <i class="fa-solid fa-file-excel"></i> Tải Excel ${label}
+                        </a>
+                        <a href="/download/pdf/${code}?reportId=${report.reportId}" class="btn btn-pdf">
+                            <i class="fa-solid fa-file-pdf"></i> Tải PDF ${label}
+                        </a>
+                    `;
+                }
+            });
+
+            // Nút Phụ lục II tổng hợp lỗi (Cả Excel & PDF)
+            html += `
+                <a href="/download/excel/phu-luc-ii?reportId=${report.reportId}" class="btn btn-excel" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                    <i class="fa-solid fa-file-excel"></i> Tải Excel Phụ Lục II (Lỗi)
+                </a>
+                <a href="/download/pdf/phu-luc-ii?reportId=${report.reportId}" class="btn btn-pdf" style="background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);">
+                    <i class="fa-solid fa-file-shield"></i> Tải PDF Phụ Lục II (Lỗi)
+                </a>
+                <a href="/download/all-zip?reportId=${report.reportId}" class="btn btn-success">
+                    <i class="fa-solid fa-file-zipper"></i> Tải Trọn Gói (.ZIP)
+                </a>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function renderTabs(report) {
+            const tabsNav = document.getElementById('tabsNav');
+            let html = `
+                <button type="button" class="tab-btn ${activeTab === 'all' ? 'active' : ''}" onclick="switchTab('all')">
+                    <i class="fa-solid fa-triangle-exclamation text-red-500"></i> Tất cả hồ sơ sai lệch (${report.totalAllErrors})
+                </button>
+            `;
+
+            report.appendixResults.forEach((app, idx) => {
+                const key = 'app_' + idx;
+                html += `
+                    <button type="button" class="tab-btn ${activeTab === key ? 'active' : ''}" onclick="switchTab('${key}')">
+                        <i class="fa-solid fa-folder"></i> ${app.appendixType.shortName || app.appendixType} (${app.errorRecords}/${app.totalRecords})
+                    </button>
+                `;
+            });
+
+            tabsNav.innerHTML = html;
+        }
+
+        function switchTab(tabKey) {
+            activeTab = tabKey;
+            if (currentReport) {
+                renderTabs(currentReport);
+                renderTableData(tabKey);
+            }
+        }
+
+        function renderTableData(tabKey) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            let recordsToDisplay = [];
+
+            if (tabKey === 'all') {
+                currentReport.appendixResults.forEach(app => {
+                    app.records.filter(r => r.difference.hasError).forEach(r => recordsToDisplay.push(r));
+                });
+            } else if (tabKey.startsWith('app_')) {
+                const idx = parseInt(tabKey.split('_')[1]);
+                if (currentReport.appendixResults[idx]) {
+                    recordsToDisplay = currentReport.appendixResults[idx].records;
+                }
+            }
+
+            if (recordsToDisplay.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 2rem; color: #64748b;">
+                            <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                            Không có hồ sơ sai sót nào trong danh mục này!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            recordsToDisplay.forEach((r, idx) => {
+                const p = r.parsed;
+                const c = r.calculated;
+                const d = r.difference;
+                const wrongCols = d.wrongColumnIndices || [];
+                const isErr = d.hasError;
+                const diffVal = d.diffAmount || 0;
+                const sign = diffVal > 0 ? '+' : '';
+
+                const isSalaryWrong = wrongCols.includes(9);
+                const isMonthsWrong = wrongCols.includes(10);
+                const isTotalWrong = wrongCols.includes(23) || wrongCols.includes(18) || wrongCols.includes(15);
+
+                const tr = document.createElement('tr');
+
+                tr.innerHTML = `
+                    <td style="text-align: center; font-weight: 600;">${idx + 1}</td>
+                    <td style="font-weight: 600;">${p.fullName}</td>
+                    <td style="text-align: center;">${p.birthDateStr || '-'}</td>
+                    <td style="text-align: center;"><span class="badge badge-type">${p.rank || '-'}</span></td>
+                    <td><span class="badge badge-type">${r.appendixType.shortName || r.appendixType}</span></td>
+                    <td style="text-align: right;">
+                        <span class="${isSalaryWrong ? 'cell-wrong' : ''}">${formatMoney(p.salary)} đ</span>
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="${isMonthsWrong ? 'cell-wrong' : ''}">${p.monthsEarly || 0}</span>
+                    </td>
+                    <td style="text-align: right;">${formatMoney(p.declaredTotal)} đ</td>
+                    <td style="text-align: right; font-weight: 700;">${formatMoney(c.totalAmount)} đ</td>
+                    <td style="text-align: right;">
+                        <span class="${isTotalWrong ? 'cell-wrong' : (diffVal !== 0 ? 'money-diff-pos' : 'money-diff-neg')}">
+                            ${sign}${formatMoney(diffVal)} đ
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${isErr ? 'badge-error' : 'badge-success'}">
+                            ${isErr ? 'SAI LỆCH' : 'HỢP LỆ'}
+                        </span>
+                        <div style="font-size: 0.78rem; color: #475569; margin-top: 0.25rem;">
+                            ${d.detailedExplanation}
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
