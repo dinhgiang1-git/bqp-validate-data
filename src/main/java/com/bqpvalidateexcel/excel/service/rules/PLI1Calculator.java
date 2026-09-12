@@ -10,13 +10,13 @@ import java.util.Date;
 public class PLI1Calculator {
 
     public static PLI1ExpectedResult calculateExpected(PhuLucI1 data) {
-        int tran = getTran(data.getCapBac());
+        int tran = getTran(data.getCapBac(), data.getChucVu());
         int cot10 = 0;
         if (tran > 0 && data.getNgaySinh() != null && data.getThoiDiemNghiHuuHuongTroCap() != null) {
             java.util.Calendar calDob = java.util.Calendar.getInstance();
             calDob.setTime(data.getNgaySinh());
             int expectedRetireYear = calDob.get(java.util.Calendar.YEAR) + tran;
-            int expectedRetireMonth = calDob.get(java.util.Calendar.MONTH); // Mốc nghỉ hưu chuẩn chính là tháng sinh
+            int expectedRetireMonth = calDob.get(java.util.Calendar.MONTH); // Trở về đúng tháng sinh, KHÔNG cộng thêm 1
             
             java.util.Calendar calRetire = java.util.Calendar.getInstance();
             calRetire.setTime(data.getThoiDiemNghiHuuHuongTroCap());
@@ -89,7 +89,7 @@ public class PLI1Calculator {
         } else {
             if (exp12.compareTo(BigDecimal.valueOf(15)) > 0) {
                 val18_21 = luong.multiply(BigDecimal.valueOf(4));
-                val19_22 = luong.multiply(BigDecimal.valueOf(0.4)).multiply(exp12.subtract(BigDecimal.valueOf(15)));
+                val19_22 = luong.multiply(BigDecimal.valueOf(0.5)).multiply(exp12.subtract(BigDecimal.valueOf(15)));
             }
         }
 
@@ -141,14 +141,18 @@ public class PLI1Calculator {
         return BigDecimal.valueOf(years).add(BigDecimal.ONE);
     }
     
-    private static int getTran(String capBac) {
+    private static int getTran(String capBac, String chucVu) {
         if (capBac == null) return 0;
         String cb = capBac.toLowerCase();
+        String cv = (chucVu != null) ? chucVu.toLowerCase() : "";
+        boolean isQNCN = cv.contains("nhân viên") || cv.contains("lái xe") || cv.contains("thợ") 
+                      || cv.contains("chạm") || cv.contains("trạm") || cb.contains("qncn");
+        
         if (cb.contains("đại tá")) return 58;
-        if (cb.contains("thượng tá")) return 56;
-        if (cb.contains("trung tá")) return 54;
-        if (cb.contains("thiếu tá")) return 52;
-        if (cb.contains("uý") || cb.contains("úy")) return 50;
+        if (cb.contains("thượng tá")) return isQNCN ? 56 : 56;
+        if (cb.contains("trung tá")) return isQNCN ? 54 : 54;
+        if (cb.contains("thiếu tá")) return isQNCN ? 54 : 52;
+        if (cb.contains("uý") || cb.contains("úy")) return isQNCN ? 52 : 50;
         return 0;
     }
 }
