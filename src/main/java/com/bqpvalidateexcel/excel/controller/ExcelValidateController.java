@@ -1,0 +1,54 @@
+package com.bqpvalidateexcel.excel.controller;
+
+import com.bqpvalidateexcel.excel.model.dto.*;
+import com.bqpvalidateexcel.excel.model.expected.*;
+import com.bqpvalidateexcel.excel.parser.*;
+import com.bqpvalidateexcel.excel.service.rules.*;
+import com.bqpvalidateexcel.excel.service.*;
+
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/excel")
+@RequiredArgsConstructor
+public class ExcelValidateController {
+
+    private final ExcelValidationService validationService;
+
+    @PostMapping(value = "/validate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<byte[]> validateExcel(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(null);
+            }
+
+            // Gọi service để xử lý file và lấy output (đã ghi đè danh sách lỗi vào Phụ lục II)
+            byte[] outputExcelBytes = validationService.validateAndGenerateErrorReport(file.getInputStream());
+
+            // Trả về file Excel cho người dùng tải xuống
+            String safeFileName = java.net.URLEncoder.encode("Result_" + file.getOriginalFilename(), "UTF-8").replaceAll("\\+", "%20");
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + safeFileName);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(outputExcelBytes);
+
+        } catch (Exception e) {
+            log.error("Lỗi khi validate file excel", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+}
