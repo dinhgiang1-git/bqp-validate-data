@@ -1,0 +1,57 @@
+package com.bqpvalidateexcel.excel.model.dto;
+
+import com.bqpvalidateexcel.excel.model.dto.*;
+import com.bqpvalidateexcel.excel.model.expected.*;
+import com.bqpvalidateexcel.excel.parser.*;
+import com.bqpvalidateexcel.excel.service.rules.*;
+import com.bqpvalidateexcel.excel.service.*;
+
+
+import lombok.Builder;
+import lombok.Getter;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+@Getter
+@Builder
+public class PhuLucI1 {
+    private int rowIndex;
+
+    private String hoTen;
+    private Date ngaySinh;
+    private String capBac;
+    private String chucVu;
+    private Date dateJoined;
+    private Date nhapNgu;
+    private String kQDanhGiaCB;
+    private Date thoiGianDonViSapNhapGiaiThe;
+    private Date thoiDiemNghiHuuHuongTroCap;
+    private BigDecimal luongThangHienThuongTheoThongTu;
+    private Integer soThangNghiHuuTruocTuoiTheoThongTu;
+    private Integer soNamNghiHuuTruocTuoiTheoThongTu;
+    private BigDecimal soNamCongTacDongBHXHTheoThongTu;
+
+    //Trợ cấp một lần cho thời gian nghỉ sớm
+    private BigDecimal tuoiDoiCon5NamTroXuong1;
+    private BigDecimal tuoiDoiConTren5NamDenDuoi10Nam1;
+    private BigDecimal tuoiDoiCon5NamTroXuong2;
+    private BigDecimal tuoiDoiConTren5NamDenDuoi10Nam2;
+
+    //Trợ cấp nghỉ hưu trước tuổi theo thời gian đóng BHXH và số năm nghỉ sớm
+    private BigDecimal G5ThangTienLuongHienHuongCho1NamNghiSom;
+    private BigDecimal G5ThangTienLuongHienHuongCho20NamDauCongTac1;
+    private BigDecimal tuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1;
+    private BigDecimal G4ThangTienLuongHienHuongCho1NamNghi;
+    private BigDecimal G5ThangTienLuongHienHuongCho20NamDauCongTac2;
+    private BigDecimal tuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2;
+    private BigDecimal tongCongSoTienTheoNghiDinhSo178;
+    private BigDecimal tongSoTien;
+
+    public boolean isBlank() {
+        return hoTen.isEmpty() && hoTen.isEmpty()
+                && capBac.isEmpty() && capBac.isEmpty()
+                && chucVu.isEmpty() && chucVu.isEmpty()
+                && kQDanhGiaCB.isEmpty() && kQDanhGiaCB.isEmpty();
+    }
+}
