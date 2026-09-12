@@ -218,28 +218,57 @@ public class ExcelValidationService {
             // USE THE CALCULATOR!
             PLI1ExpectedResult exp = PLI1Calculator.calculateExpected(data);
 
+            String luongFmt = fmt(data.getLuongThangHienThuongTheoThongTu());
+            int c10 = exp.getCot10();
+            int capC10 = Math.min(c10, 60);
+            String c11Fmt = fmt(exp.getCot11());
+            String c12Fmt = fmt(exp.getCot12());
+            boolean nghiTruoc172025 = true;
+            try {
+                if (data.getThoiDiemNghiHuuHuongTroCap() != null && data.getThoiDiemNghiHuuHuongTroCap().after(new java.text.SimpleDateFormat("dd/MM/yyyy").parse("01/07/2025"))) {
+                    nghiTruoc172025 = false;
+                }
+            } catch (Exception ignored) {}
+            String hs18 = nghiTruoc172025 ? "5" : "4";
+            String moc19 = nghiTruoc172025 ? "20" : "15";
+
+            String bdStr = "";
+            if (data.getNgaySinh() != null) bdStr = new java.text.SimpleDateFormat("MM/yyyy").format(data.getNgaySinh());
+            String retStr = "";
+            if (data.getThoiDiemNghiHuuHuongTroCap() != null) retStr = new java.text.SimpleDateFormat("MM/yyyy").format(data.getThoiDiemNghiHuuHuongTroCap());
+            
             if (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10()) {
-                addError(row, 10, "Cột 10. Kết quả đúng: " + exp.getCot10() + ". Công thức: (Cột 2 + trần) - Cột 8", errorDetails, redFont, redStyleCache);
+                addError(row, 10, "Cột 10. Kết quả đúng: " + exp.getCot10() + ". Công thức: (Tháng sinh + Trần) - Cột 8 (VD: Khoảng cách từ " + retStr + " đến Mốc hưu chuẩn của " + bdStr + ")", errorDetails, redFont, redStyleCache);
             }
             if (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && data.getSoNamNghiHuuTruocTuoiTheoThongTu() != exp.getCot11().intValue()) {
-                addError(row, 11, "Cột 11. Kết quả đúng: " + fmt(exp.getCot11()) + ". Công thức: Cột 10 / 12", errorDetails, redFont, redStyleCache);
+                addError(row, 11, "Cột 11. Kết quả đúng: " + c11Fmt + ". Công thức: Cột 10 / 12 (VD: " + c10 + " / 12)", errorDetails, redFont, redStyleCache);
             }
             if (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqual(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu())) {
-                addError(row, 12, "Cột 12. Kết quả đúng: " + fmt(exp.getCot12()) + ". Công thức: Cột 8 - Cột 5", errorDetails, redFont, redStyleCache);
+                addError(row, 12, "Cột 12. Kết quả đúng: " + c12Fmt + ". Công thức: Cột 8 - Cột 5", errorDetails, redFont, redStyleCache);
             }
 
-            checkCol(row, 13, data.getTuoiDoiCon5NamTroXuong1(), exp.getCot13(), "Cột 10 (<= 60) * 1 tháng * Cột 9 (ĐK: Cột 8 - Cột 7 < 12)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 14, data.getTuoiDoiConTren5NamDenDuoi10Nam1(), exp.getCot14(), "Cột 10 (> 60) * 0.9 tháng * Cột 9 (ĐK: Cột 8 - Cột 7 < 12)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 15, data.getTuoiDoiCon5NamTroXuong2(), exp.getCot15(), "Cột 10 (<= 60) * 0.5 tháng * Cột 9 (ĐK: Cột 8 - Cột 7 >= 12)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 16, data.getTuoiDoiConTren5NamDenDuoi10Nam2(), exp.getCot16(), "Cột 10 (> 60) * 0.45 tháng * Cột 9 (ĐK: Cột 8 - Cột 7 >= 12)", errorDetails, redFont, redStyleCache);
-            
-            checkCol(row, 17, data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), exp.getCot17(), "Cột 11 * 5 tháng * Cột 9 (ĐK: 2 <= Cột 11 <= 5)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 18, data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1(), exp.getCot18(), "Cột 9 * 5 (trước 1/7) hoặc 4 (sau 1/7) (ĐK: 2 <= Cột 11 <= 5)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 19, data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1(), exp.getCot19(), "Cột 9 * 0.5 * (Cột 12-20) [trước 1/7] hoặc Cột 9 * 0.4 * (Cột 12-15) [sau 1/7] (ĐK: 2 <= Cột 11 <= 5)", errorDetails, redFont, redStyleCache);
-            
-            checkCol(row, 20, data.getG4ThangTienLuongHienHuongCho1NamNghi(), exp.getCot20(), "Cột 11 * 4 tháng * Cột 9 (ĐK: 5 < Cột 11 <= 10)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 21, data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2(), exp.getCot21(), "Cột 9 * 5 (trước 1/7) hoặc 4 (sau 1/7) (ĐK: 5 < Cột 11 <= 10)", errorDetails, redFont, redStyleCache);
-            checkCol(row, 22, data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2(), exp.getCot22(), "Cột 9 * 0.5 * (Cột 12-20) [trước 1/7] hoặc Cột 9 * 0.4 * (Cột 12-15) [sau 1/7] (ĐK: 5 < Cột 11 <= 10)", errorDetails, redFont, redStyleCache);
+            checkCol(row, 13, data.getTuoiDoiCon5NamTroXuong1(), exp.getCot13(), 
+                "Cột 10 (<= 60) * 1 tháng * Cột 9 (VD: " + capC10 + " * 1 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 14, data.getTuoiDoiConTren5NamDenDuoi10Nam1(), exp.getCot14(), 
+                "Cột 10 (> 60) * 0.9 tháng * Cột 9 (VD: " + capC10 + " * 0.9 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 15, data.getTuoiDoiCon5NamTroXuong2(), exp.getCot15(), 
+                "Cột 10 (<= 60) * 0.5 tháng * Cột 9 (VD: " + capC10 + " * 0.5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 16, data.getTuoiDoiConTren5NamDenDuoi10Nam2(), exp.getCot16(), 
+                "Cột 10 (> 60) * 0.45 tháng * Cột 9 (VD: " + capC10 + " * 0.45 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+
+            checkCol(row, 17, data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), exp.getCot17(), 
+                "Cột 11 * 5 tháng * Cột 9 (VD: " + c11Fmt + " * 5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 18, data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1(), exp.getCot18(), 
+                "Cột 9 * " + hs18 + " tháng (VD: " + luongFmt + " * " + hs18 + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 19, data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1(), exp.getCot19(), 
+                "Cột 9 * 0.5 * (Cột 12 - " + moc19 + ") (VD: " + luongFmt + " * 0.5 * (" + c12Fmt + " - " + moc19 + "))", errorDetails, redFont, redStyleCache);
+
+            checkCol(row, 20, data.getG4ThangTienLuongHienHuongCho1NamNghi(), exp.getCot20(), 
+                "Cột 11 * 4 tháng * Cột 9 (VD: " + c11Fmt + " * 4 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 21, data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2(), exp.getCot21(), 
+                "Cột 9 * " + hs18 + " tháng (VD: " + luongFmt + " * " + hs18 + ")", errorDetails, redFont, redStyleCache);
+            checkCol(row, 22, data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2(), exp.getCot22(), 
+                "Cột 9 * 0.5 * (Cột 12 - " + moc19 + ") (VD: " + luongFmt + " * 0.5 * (" + c12Fmt + " - " + moc19 + "))", errorDetails, redFont, redStyleCache);
 
             BigDecimal expectedTotal = BigDecimal.ZERO;
             expectedTotal = expectedTotal.add(exp.getCot13() != null ? exp.getCot13() : BigDecimal.ZERO);
