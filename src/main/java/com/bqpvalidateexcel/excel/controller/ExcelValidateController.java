@@ -48,7 +48,10 @@ public class ExcelValidateController {
 
         } catch (Exception e) {
             log.error("Lỗi khi validate file excel", e);
-            return ResponseEntity.internalServerError().build();
+            String errMsg = e.getMessage() != null && !e.getMessage().trim().isEmpty() ? e.getMessage() : e.toString();
+            return ResponseEntity.status(500)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(errMsg.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
     }
 }

@@ -111,6 +111,44 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.7.0</version>
+                <executions>
+                    <execution>
+                        <id>l4j-clui</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>console</headerType>
+                            <jar>${project.build.directory}/${project.build.finalName}.jar</jar>
+                            <outfile>${project.build.directory}/BqpValidateExcel.exe</outfile>
+                            <downloadUrl>https://adoptium.net/</downloadUrl>
+                            <classPath>
+                                <mainClass>org.springframework.boot.loader.launch.JarLauncher</mainClass>
+                            </classPath>
+                            <jre>
+                                <path>%JAVA_HOME%;%PATH%</path>
+                                <minVersion>17</minVersion>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>1.0.0.0</txtFileVersion>
+                                <fileDescription>Phần mềm Thẩm định Dữ liệu Excel BQP</fileDescription>
+                                <copyright>Bộ Quốc Phòng</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>1.0.0.0</txtProductVersion>
+                                <productName>BQP Validate Excel</productName>
+                                <internalName>BqpValidateExcel</internalName>
+                                <originalFilename>BqpValidateExcel.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
