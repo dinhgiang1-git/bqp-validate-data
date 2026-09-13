@@ -40,7 +40,7 @@ public class PLI1Calculator {
         if (data.getThoiDiemNghiHuuHuongTroCap() != null) {
             try {
                 Date threshold = new SimpleDateFormat("dd/MM/yyyy").parse("01/07/2025");
-                if (data.getThoiDiemNghiHuuHuongTroCap().after(threshold)) {
+                if (!data.getThoiDiemNghiHuuHuongTroCap().before(threshold)) {
                     nghiTruoc172025 = false;
                 }
             } catch (Exception ignored) {}
@@ -50,7 +50,7 @@ public class PLI1Calculator {
         if (data.getThoiDiemNghiHuuHuongTroCap() != null && data.getThoiGianDonViSapNhapGiaiThe() != null) {
             timeDiff = calcThang(data.getThoiDiemNghiHuuHuongTroCap(), data.getThoiGianDonViSapNhapGiaiThe());
         }
-        boolean nhoHon12 = (timeDiff < 12);
+        boolean nhoHon12 = (timeDiff <= 12);
 
         BigDecimal expectedCol13 = BigDecimal.ZERO;
         BigDecimal expectedCol14 = BigDecimal.ZERO;
@@ -143,10 +143,10 @@ public class PLI1Calculator {
     
     private static int getTran(String capBac, String chucVu) {
         if (capBac == null) return 0;
-        String cb = capBac.toLowerCase();
-        String cv = (chucVu != null) ? chucVu.toLowerCase() : "";
+        String cb = capBac.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ");
+        String cv = (chucVu != null) ? chucVu.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ") : "";
         boolean isQNCN = cv.contains("nhân viên") || cv.contains("lái xe") || cv.contains("thợ") 
-                      || cv.contains("chạm") || cv.contains("trạm") || cb.contains("qncn");
+                      || cv.contains("chạm") || cv.contains("trạm") || cb.contains("qncn") || cv.contains("qncn");
         
         if (cb.contains("đại tá")) return 58;
         if (cb.contains("thượng tá")) return isQNCN ? 56 : 56;

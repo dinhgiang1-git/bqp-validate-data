@@ -21,23 +21,35 @@ public class ExcelRowParsePLI3 {
             return Optional.empty();
         }
 
+        // Kiểm tra xem sheet có cột 'Đơn vị' ở cột index 5 hay không
+        boolean hasDonVi = false;
+        org.apache.poi.ss.usermodel.Row headerRow6 = row.getSheet().getRow(5);
+        if (headerRow6 != null) {
+            String h5 = ExcelParserUtils.getString(headerRow6, 5, formulaEvaluator).toLowerCase();
+            if (h5.contains("đơn vị") || h5.contains("don vi")) {
+                hasDonVi = true;
+            }
+        }
+        int offset = hasDonVi ? 1 : 0;
+
         PhuLucI3 data = PhuLucI3.builder()
                 .rowIndex(rowIndex)
                 .hoTen(ExcelParserUtils.getString(row, 1, formulaEvaluator))
                 .ngaySinh(ExcelParserUtils.getDate(row, 2, formulaEvaluator))
                 .capBac(ExcelParserUtils.getString(row, 3, formulaEvaluator))
                 .chucVu(ExcelParserUtils.getString(row, 4, formulaEvaluator))
-                .nhapNgu(ExcelParserUtils.getDate(row, 5, formulaEvaluator))
-                .kQDanhGiaCB(ExcelParserUtils.getString(row, 6, formulaEvaluator))
-                .thoiGianDonViSapNhapGiaiThe(ExcelParserUtils.getDate(row, 7, formulaEvaluator))
-                .thoiDiemNghiHuuHuongTroCap(ExcelParserUtils.getDate(row, 8, formulaEvaluator))
-                .luongThangHienThuongTheoHuongDan(ExcelParserUtils.getBigDecimal(row, 9, formulaEvaluator))
-                .soThangThoiViecTheoHuongDan(ExcelParserUtils.getInteger(row, 10, formulaEvaluator))
-                .soNamHuongTroCapTheoHuongDan(ExcelParserUtils.getInteger(row, 11, formulaEvaluator))
-                .G5ThangTienLuongHienHuongCho1NamNghiSom(ExcelParserUtils.getBigDecimal(row, 12, formulaEvaluator))
-                .G5ThangTienLuongHienHuongCho20NamDauCongTac(ExcelParserUtils.getBigDecimal(row, 13, formulaEvaluator))
-                .tuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong(ExcelParserUtils.getBigDecimal(row, 14, formulaEvaluator))
-                .tongCongSoTienNghiThoiViecTheoNghiDinhSo177(ExcelParserUtils.getBigDecimal(row, 15, formulaEvaluator))
+                .donVi(hasDonVi ? ExcelParserUtils.getString(row, 5, formulaEvaluator) : null)
+                .nhapNgu(ExcelParserUtils.getDate(row, 5 + offset, formulaEvaluator))
+                .kQDanhGiaCB(ExcelParserUtils.getString(row, 6 + offset, formulaEvaluator))
+                .thoiGianDonViSapNhapGiaiThe(ExcelParserUtils.getDate(row, 7 + offset, formulaEvaluator))
+                .thoiDiemNghiHuuHuongTroCap(ExcelParserUtils.getDate(row, 8 + offset, formulaEvaluator))
+                .luongThangHienThuongTheoHuongDan(ExcelParserUtils.getBigDecimal(row, 9 + offset, formulaEvaluator))
+                .soThangThoiViecTheoHuongDan(ExcelParserUtils.getBigDecimal(row, 10 + offset, formulaEvaluator))
+                .soNamHuongTroCapTheoHuongDan(ExcelParserUtils.getBigDecimal(row, 11 + offset, formulaEvaluator))
+                .G5ThangTienLuongHienHuongCho1NamNghiSom(ExcelParserUtils.getBigDecimal(row, 12 + offset, formulaEvaluator))
+                .G5ThangTienLuongHienHuongCho20NamDauCongTac(ExcelParserUtils.getBigDecimal(row, 13 + offset, formulaEvaluator))
+                .tuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong(ExcelParserUtils.getBigDecimal(row, 14 + offset, formulaEvaluator))
+                .tongCongSoTienNghiThoiViecTheoNghiDinhSo177(ExcelParserUtils.getBigDecimal(row, 15 + offset, formulaEvaluator))
                 .build();
 
         if (data.isBlank()) {

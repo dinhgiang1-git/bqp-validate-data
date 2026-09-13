@@ -21,19 +21,31 @@ import java.util.Date;
 public class ExcelParserUtils {
     private static final DataFormatter dataFormatter = new DataFormatter();
 
+    public static String cleanString(String val) {
+        if (val == null) return "";
+        // Thay thế các loại khoảng trắng đặc biệt (Non-breaking space \u00A0, \u2007, \u202F, zero-width space \u200B, \uFEFF)
+        String cleaned = val.replace('\u00A0', ' ')
+                            .replace('\u2007', ' ')
+                            .replace('\u202F', ' ')
+                            .replace('\u200B', ' ')
+                            .replace('\uFEFF', ' ');
+        // Xóa khoảng trắng thừa ở đầu/cuối và gộp các khoảng trắng liên tiếp bên trong thành 1 khoảng trắng đơn
+        return cleaned.trim().replaceAll("\\s+", " ");
+    }
+
     public static String getString(Row row, int col, FormulaEvaluator formulaEvaluator) {
         Cell cell = row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
         if (cell == null) return "";
         try {
-            return dataFormatter.formatCellValue(cell, formulaEvaluator).trim();
+            return cleanString(dataFormatter.formatCellValue(cell, formulaEvaluator));
         } catch (Exception e) {
             if (cell.getCellType() == CellType.FORMULA) {
                 try {
                     CellType cachedType = cell.getCachedFormulaResultType();
                     if (cachedType == CellType.STRING) {
-                        return cell.getStringCellValue().trim();
+                        return cleanString(cell.getStringCellValue());
                     } else if (cachedType == CellType.NUMERIC) {
-                        return dataFormatter.formatCellValue(cell).trim();
+                        return cleanString(dataFormatter.formatCellValue(cell));
                     } else if (cachedType == CellType.BOOLEAN) {
                         return String.valueOf(cell.getBooleanCellValue());
                     }
@@ -111,6 +123,9 @@ public class ExcelParserUtils {
         if (val.toLowerCase().startsWith("thg")) {
             val = val.replaceAll("(?i)thg\\s*", "");
         }
+
+        // Xóa khoảng trắng thừa quanh dấu gạch chéo hoặc gạch ngang
+        val = val.replaceAll("\\s*/\\s*", "/").replaceAll("\\s*-\\s*", "-").replaceAll("\\s+", "");
 
         String[] formats = {
                 "dd/MM/yyyy", "d/M/yyyy", "dd/M/yyyy", "d/MM/yyyy",

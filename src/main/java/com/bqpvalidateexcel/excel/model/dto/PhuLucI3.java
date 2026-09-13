@@ -21,14 +21,15 @@ public class PhuLucI3 {
     private Date ngaySinh;
     private String capBac;
     private String chucVu;
+    private String donVi;
     private Date nhapNgu;
     private String kQDanhGiaCB;
     private Date thoiGianDonViSapNhapGiaiThe;
     private Date thoiDiemNghiHuuHuongTroCap;
     
     private BigDecimal luongThangHienThuongTheoHuongDan;
-    private Integer soThangThoiViecTheoHuongDan;
-    private Integer soNamHuongTroCapTheoHuongDan;
+    private BigDecimal soThangThoiViecTheoHuongDan;
+    private BigDecimal soNamHuongTroCapTheoHuongDan;
 
     // Tuổi đời từ đủ 12 tháng đến 60 tháng đến tuổi nghỉ hưu
     private BigDecimal G5ThangTienLuongHienHuongCho1NamNghiSom;
