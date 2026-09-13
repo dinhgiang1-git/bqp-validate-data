@@ -1,5 +1,8 @@
 package com.bqpvalidateexcel;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import com.bqpvalidateexcel.excel.parser.ExcelParserUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -8,6 +11,108 @@ class BqpValidateExcelApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI1 parsePLI1;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI2 parsePLI2;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI3 parsePLI3;
+
+    @Test
+    void testMilitaryRankNotations() {
+        // Cấp Tá
+        org.junit.jupiter.api.Assertions.assertEquals(58, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4//", null));
+        org.junit.jupiter.api.Assertions.assertEquals(58, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4 //", null));
+        org.junit.jupiter.api.Assertions.assertEquals(58, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Đại tá", null));
+        org.junit.jupiter.api.Assertions.assertEquals(58, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4// QNCN", null));
+
+        org.junit.jupiter.api.Assertions.assertEquals(56, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("3//", null));
+        org.junit.jupiter.api.Assertions.assertEquals(56, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("3 //", null));
+        org.junit.jupiter.api.Assertions.assertEquals(56, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Thượng tá", null));
+
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("2//", null));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("2 //", null));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Trung tá", null));
+
+        org.junit.jupiter.api.Assertions.assertEquals(52, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Trợ lý"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Nhân viên"));
+        org.junit.jupiter.api.Assertions.assertEquals(52, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Thiếu tá", null));
+
+        // Cấp Úy
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4/", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4 /", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Đại úy", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Đại uý", null));
+        org.junit.jupiter.api.Assertions.assertEquals(52, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4/", "Nhân viên"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("3/", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("3 /", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Thượng úy", null));
+
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("2/", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("2 /", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Trung úy", null));
+
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1/", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1 /", null));
+        org.junit.jupiter.api.Assertions.assertEquals(50, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Thiếu úy", null));
+
+        // Negative test: phân số hoặc ngày tháng không bị nhận nhầm
+        org.junit.jupiter.api.Assertions.assertEquals(0, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("Bậc 12/12", null));
+        org.junit.jupiter.api.Assertions.assertEquals(0, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("01/04/1990", null));
+    }
+
+    @Test
+    void testBCYFile() throws Exception {
+        java.io.File file = new java.io.File("1. Phu luc BCY.xlsx");
+        System.out.println("=== testBCYFile exists: " + file.exists() + ", path: " + file.getAbsolutePath());
+        org.junit.jupiter.api.Assertions.assertTrue(file.exists());
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file);
+             org.apache.poi.ss.usermodel.Workbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(fis)) {
+            org.apache.poi.ss.usermodel.FormulaEvaluator eval = wb.getCreationHelper().createFormulaEvaluator();
+            
+            // Test parsing with colMap
+            org.apache.poi.ss.usermodel.Sheet s1 = wb.getSheet("Phụ lục I.1");
+            if (s1 != null) {
+                java.util.Map<Integer, Integer> cmap = com.bqpvalidateexcel.excel.parser.ExcelParserUtils.findColMap(s1, eval);
+                int count = 0;
+                for (int r = 0; r <= s1.getLastRowNum(); r++) {
+                    org.apache.poi.ss.usermodel.Row row = s1.getRow(r);
+                    if (row != null) {
+                        java.util.Optional<com.bqpvalidateexcel.excel.model.dto.PhuLucI1> p = parsePLI1.parse(row, r, eval, cmap);
+                        if (p.isPresent() && p.get().getCapBac() != null && !p.get().getCapBac().isEmpty() && p.get().getNgaySinh() != null) {
+                            count++;
+                        }
+                    }
+                }
+                System.out.println("I.1 valid records parsed: " + count);
+                org.junit.jupiter.api.Assertions.assertTrue(count > 0, "Phụ lục I.1 must parse valid records");
+            }
+
+            byte[] res = validationService.validateAndGenerateErrorReport(new java.io.FileInputStream(file));
+            System.out.println("Result byte length: " + (res != null ? res.length : 0));
+            org.junit.jupiter.api.Assertions.assertNotNull(res);
+            org.junit.jupiter.api.Assertions.assertTrue(res.length > 0);
+        }
+    }
+
+    @Test
+    void testShiftedAndSpecialFormatFiles() throws Exception {
+        java.io.File hoaHocFile = new java.io.File("Đơn vị 178 thẩm định/26. Phụ lục BC Hóa học.xlsx");
+        if (hoaHocFile.exists()) {
+            byte[] res = validationService.validateAndGenerateErrorReport(new java.io.FileInputStream(hoaHocFile));
+            org.junit.jupiter.api.Assertions.assertNotNull(res);
+            org.junit.jupiter.api.Assertions.assertTrue(res.length > 0);
+        }
+
+        java.io.File ttgFile = new java.io.File("Đơn vị 178 thẩm định/22. Phụ lục BC Tăng thiết giáp.xlsx");
+        if (ttgFile.exists()) {
+            byte[] res = validationService.validateAndGenerateErrorReport(new java.io.FileInputStream(ttgFile));
+            org.junit.jupiter.api.Assertions.assertNotNull(res);
+            org.junit.jupiter.api.Assertions.assertTrue(res.length > 0);
+        }
     }
 
     @Test
@@ -108,6 +213,23 @@ class BqpValidateExcelApplicationTests {
     }
 
     @Test
+    void testQncnJobTitleKeywords() {
+        // Test các từ khóa QNCN: NV, nhân viên, y sĩ, y sỹ, thủ kho, bảo quản kho, thủy thủ, thuỷ thủ
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Bảo quản kho"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Thủ kho Quân khí"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "NV Nấu ăn"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "NV phục vụ"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "NV thống kê"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Y sĩ đa khoa"));
+        org.junit.jupiter.api.Assertions.assertEquals(54, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Y sỹ"));
+        org.junit.jupiter.api.Assertions.assertEquals(52, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4/", "Thủy thủ"));
+        org.junit.jupiter.api.Assertions.assertEquals(52, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("4/", "Thuỷ thủ"));
+
+        // So sánh với Sĩ quan chỉ huy: Trợ lý -> trần 52 (Thiếu tá SQ)
+        org.junit.jupiter.api.Assertions.assertEquals(52, com.bqpvalidateexcel.excel.service.rules.MilitaryRankHelper.getTran("1//", "Trợ lý"));
+    }
+
+    @Test
     void testPLI2Rounding() {
         // 240 tháng = 20 năm đúng
         org.junit.jupiter.api.Assertions.assertEquals(
@@ -200,15 +322,22 @@ class BqpValidateExcelApplicationTests {
                 // Col V (idx 21) should be "Ghi chú"
                 org.junit.jupiter.api.Assertions.assertEquals("Ghi chú", com.bqpvalidateexcel.excel.parser.ExcelParserUtils.getString(r9, 21, eval));
 
-                // Kiểm tra Phụ lục I.1 cho dòng Nguyễn Văn Chinh (row index 16): nghỉ hưu 07/2025 -> áp dụng hệ số 0.4 cho Cột 19
+                // Kiểm tra Phụ lục I.1:
+                // 1. Dòng Nguyễn Văn Chinh (row index 16): Cột 10 = 38 khác 62, vì đã bỏ logic +-24 tháng ở Sheet I.1 nên bị báo lỗi Cột 10
                 org.apache.poi.ss.usermodel.Sheet ws1 = wb.getSheet("Phụ lục I.1");
                 org.junit.jupiter.api.Assertions.assertNotNull(ws1);
                 org.apache.poi.ss.usermodel.Row rChinh = ws1.getRow(16);
                 String noteChinh = com.bqpvalidateexcel.excel.parser.ExcelParserUtils.getString(rChinh, 24, eval);
                 org.junit.jupiter.api.Assertions.assertNotNull(noteChinh);
+                org.junit.jupiter.api.Assertions.assertTrue(noteChinh.contains("Cột 10"), "Nguyễn Văn Chinh phải bị báo lỗi Cột 10 vì bỏ quy tắc +-24");
+
+                // 2. Kiểm tra dòng có Cột 10 > 60 nhưng ghi = 60 (Nguyễn Văn Chúc row index 53):
+                // Theo quy tắc mới: Nếu cột > 60 mà ghi = 60 thì vẫn cho là đúng -> không bị báo lỗi
+                org.apache.poi.ss.usermodel.Row rChuc = ws1.getRow(53);
+                String noteChuc = com.bqpvalidateexcel.excel.parser.ExcelParserUtils.getString(rChuc, 24, eval);
                 org.junit.jupiter.api.Assertions.assertTrue(
-                    noteChinh.contains("Cột 22. Kết quả đúng: 244.675.080. Công thức: Cột 9 * 0.5 * (Cột 12 - 15)"),
-                    "Expected note to contain 0.5 formula and 244.675.080 result for Cột 22, but was: " + noteChinh
+                    noteChuc == null || noteChuc.trim().isEmpty(),
+                    "Nguyễn Văn Chúc có C10 > 60 nhưng ghi = 60 nên coi là đúng, không được có lỗi: " + noteChuc
                 );
 
                 java.nio.file.Files.write(java.nio.file.Paths.get("Result_11. PL BC Quân khu gửi BQP (sửa 10.9.2026).xlsx"), out);
@@ -466,22 +595,145 @@ class BqpValidateExcelApplicationTests {
                     org.junit.jupiter.api.Assertions.assertTrue(colChenhLech >= 0, "Cột Chênh lệch phải tồn tại");
                     org.junit.jupiter.api.Assertions.assertEquals(colTinhLai + 1, colChenhLech, "Cột Chênh lệch phải nằm ngay bên cạnh cột Tính lại");
 
-                    // Kiểm tra những người chỉ sai 24 tháng (như Nguyễn Văn Chinh row 16) KHÔNG được chèn thêm vào sheet Phụ lục II
+                    // Kiểm tra Nguyễn Văn Chinh (thuộc Sheet I.1, có lỗi Cột 10 do bỏ quy tắc +-24 tháng) ĐÃ ĐƯỢC ghi nhận vào Phụ lục II
+                    boolean foundChinhInExport = false;
                     for (int r = 0; r <= wsPLII.getLastRowNum(); r++) {
                         org.apache.poi.ss.usermodel.Row row = wsPLII.getRow(r);
                         if (row == null) continue;
                         String hoTen = com.bqpvalidateexcel.excel.parser.ExcelParserUtils.getString(row, 1, eval);
                         if (hoTen != null && hoTen.toLowerCase().contains("nguyễn văn chinh")) {
-                            // Nguyễn Văn Chinh chỉ nằm ở dữ liệu cũ ban đầu của file gốc (r < 100), không bị chèn thêm ở phần cuối sheet (> 2600)
-                            org.junit.jupiter.api.Assertions.assertTrue(
-                                r < 100,
-                                "Nguyễn Văn Chinh chênh lệch 24 tháng tuổi nghỉ hưu không được chèn thêm vào Phụ lục II"
-                            );
+                            if (r > 100) {
+                                foundChinhInExport = true;
+                            }
                         }
                     }
+                    org.junit.jupiter.api.Assertions.assertTrue(
+                        foundChinhInExport,
+                        "Nguyễn Văn Chinh (Sheet I.1) do bỏ quy tắc +-24 nên phải được chèn vào danh sách lỗi ở Phụ lục II"
+                    );
                 }
             }
         }
+    }
+
+    @Test
+    void testPLI1CalculatorRules() throws Exception {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy");
+
+        // TH1: rawCot10 > 60 nhưng họ ghi C10 = 60, C11 = 5 (như Nguyễn Văn Chúc)
+        // Sinh: 14/09/1974, Đại tá (58), Nghỉ hưu: 10/2025 -> rawCot10 = 84 tháng
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI1 dataChuc = com.bqpvalidateexcel.excel.model.dto.PhuLucI1.builder()
+                .ngaySinh(sdf.parse("14/09/1974"))
+                .capBac("Đại tá")
+                .chucVu("Chính trị viên")
+                .nhapNgu(sdf.parse("01/03/1992"))
+                .thoiDiemNghiHuuHuongTroCap(sdf.parse("01/10/2025"))
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(32_165_640))
+                .soThangNghiHuuTruocTuoiTheoThongTu(60)
+                .soNamNghiHuuTruocTuoiTheoThongTu(java.math.BigDecimal.valueOf(5))
+                .soNamCongTacDongBHXHTheoThongTu(java.math.BigDecimal.valueOf(34))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI1ExpectedResult resChuc =
+                com.bqpvalidateexcel.excel.service.rules.PLI1Calculator.calculateExpected(dataChuc);
+
+        org.junit.jupiter.api.Assertions.assertEquals(60, resChuc.getCot10(), "Cột 10 ghi 60 khi raw > 60 phải được coi là đúng (60)");
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(5).compareTo(resChuc.getCot11()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(1_929_938_400).compareTo(resChuc.getCot13()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.ZERO.compareTo(resChuc.getCot14()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(804_141_000).compareTo(resChuc.getCot17()));
+
+        // TH2: rawCot10 > 60 nhưng họ ghi C10 = 60, C11 = 7.5 (như Trần Ngọc Hiến)
+        // Sinh: 17/10/1978, Trung tá QNCN (54), Nghỉ hưu: 07/2025 -> rawCot10 = 88 tháng
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI1 dataHien = com.bqpvalidateexcel.excel.model.dto.PhuLucI1.builder()
+                .ngaySinh(sdf.parse("17/10/1978"))
+                .capBac("Trung tá (QNCN)")
+                .chucVu("Trợ lý Quân khí")
+                .nhapNgu(sdf.parse("01/03/1999"))
+                .thoiDiemNghiHuuHuongTroCap(sdf.parse("01/07/2025"))
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(21_907_080))
+                .soThangNghiHuuTruocTuoiTheoThongTu(60)
+                .soNamNghiHuuTruocTuoiTheoThongTu(java.math.BigDecimal.valueOf(7.5))
+                .soNamCongTacDongBHXHTheoThongTu(java.math.BigDecimal.valueOf(26.5))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI1ExpectedResult resHien =
+                com.bqpvalidateexcel.excel.service.rules.PLI1Calculator.calculateExpected(dataHien);
+
+        org.junit.jupiter.api.Assertions.assertEquals(60, resHien.getCot10(), "Cột 10 ghi 60 khi raw > 60 phải được coi là đúng (60)");
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(7.5).compareTo(resHien.getCot11()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(1_182_982_320).compareTo(resHien.getCot14()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(657_212_400).compareTo(resHien.getCot20()));
+
+        // TH3: Nguyễn Văn Chinh rawCot10 = 62 nhưng ghi = 38 (lệch 24 tháng)
+        // Vì đã bỏ quy tắc +-24 tháng ở Sheet I.1 nên expected C10 vẫn là 62, không chấp nhận 38
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI1 dataChinh = com.bqpvalidateexcel.excel.model.dto.PhuLucI1.builder()
+                .ngaySinh(sdf.parse("18/08/1974"))
+                .capBac("Thượng tá")
+                .chucVu("Trợ lý")
+                .nhapNgu(sdf.parse("01/09/1992"))
+                .thoiDiemNghiHuuHuongTroCap(sdf.parse("01/07/2025"))
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(27_186_120))
+                .soThangNghiHuuTruocTuoiTheoThongTu(38)
+                .soNamNghiHuuTruocTuoiTheoThongTu(java.math.BigDecimal.valueOf(3.5))
+                .soNamCongTacDongBHXHTheoThongTu(java.math.BigDecimal.valueOf(33))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI1ExpectedResult resChinh =
+                com.bqpvalidateexcel.excel.service.rules.PLI1Calculator.calculateExpected(dataChinh);
+
+        org.junit.jupiter.api.Assertions.assertEquals(62, resChinh.getCot10(), "Không còn quy tắc +-24 ở Sheet I.1 nên C10 phải là 62 chứ không phải 38");
+    }
+
+    @Test
+    void testDinhDucTuanRecordPLI1() throws Exception {
+        org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+        org.apache.poi.ss.usermodel.Sheet sheet = wb.createSheet();
+        org.apache.poi.ss.usermodel.Row row = sheet.createRow(0);
+
+        row.createCell(0).setCellValue("02/69");
+        row.createCell(1).setCellValue("8/86");
+        row.createCell(2).setCellValue("02/25");
+        row.createCell(3).setCellValue("3/25");
+
+        Date dob = ExcelParserUtils.getDate(row, 0, null);
+        Date nn = ExcelParserUtils.getDate(row, 1, null);
+        Date sapNhap = ExcelParserUtils.getDate(row, 2, null);
+        Date ret = ExcelParserUtils.getDate(row, 3, null);
+
+        SimpleDateFormat sdfCheck = new SimpleDateFormat("MM/yyyy");
+        org.junit.jupiter.api.Assertions.assertEquals("02/1969", sdfCheck.format(dob));
+        org.junit.jupiter.api.Assertions.assertEquals("08/1986", sdfCheck.format(nn));
+        org.junit.jupiter.api.Assertions.assertEquals("02/2025", sdfCheck.format(sapNhap));
+        org.junit.jupiter.api.Assertions.assertEquals("03/2025", sdfCheck.format(ret));
+
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI1 dataTuan = com.bqpvalidateexcel.excel.model.dto.PhuLucI1.builder()
+                .hoTen("Đinh Đức Tuấn")
+                .ngaySinh(dob)
+                .capBac("4//L2")
+                .chucVu("TP KHQS, TCHC-KT")
+                .nhapNgu(nn)
+                .thoiGianDonViSapNhapGiaiThe(sapNhap)
+                .thoiDiemNghiHuuHuongTroCap(ret)
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(35_853_480))
+                .soThangNghiHuuTruocTuoiTheoThongTu(24)
+                .soNamNghiHuuTruocTuoiTheoThongTu(java.math.BigDecimal.valueOf(2.0))
+                .soNamCongTacDongBHXHTheoThongTu(java.math.BigDecimal.valueOf(39.0))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI1ExpectedResult resTuan =
+                com.bqpvalidateexcel.excel.service.rules.PLI1Calculator.calculateExpected(dataTuan);
+
+        org.junit.jupiter.api.Assertions.assertEquals(24, resTuan.getCot10());
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(2.0).compareTo(resTuan.getCot11()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(39.0).compareTo(resTuan.getCot12()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(860_483_520).compareTo(resTuan.getCot13()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(358_534_800).compareTo(resTuan.getCot17()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(179_267_400).compareTo(resTuan.getCot18()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(340_608_060).compareTo(resTuan.getCot19()));
+
+        java.math.BigDecimal totalExpected = resTuan.getCot13().add(resTuan.getCot17()).add(resTuan.getCot18()).add(resTuan.getCot19());
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(1_738_893_780L).compareTo(totalExpected));
     }
 }
 

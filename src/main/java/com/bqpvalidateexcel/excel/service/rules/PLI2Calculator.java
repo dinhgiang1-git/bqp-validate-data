@@ -14,7 +14,7 @@ public class PLI2Calculator {
         int tran = getTran(data.getCapBac(), data.getChucVu());
 
         // Tuổi đời còn lại = (trần quân hàm + Cột 2) - Cột 8
-        int thangConLai = 0;
+        int rawThangConLai = 0;
         if (tran > 0 && data.getNgaySinh() != null && data.getThoiDiemThoiViecHuongTroCap() != null) {
             Calendar calDob = Calendar.getInstance();
             calDob.setTime(data.getNgaySinh());
@@ -24,14 +24,18 @@ public class PLI2Calculator {
             calRetire.setTime(data.getThoiDiemThoiViecHuongTroCap());
             int retireMonth = calRetire.get(Calendar.YEAR) * 12 + calRetire.get(Calendar.MONTH);
 
-            thangConLai = (dobMonth + tran * 12) - retireMonth;
+            rawThangConLai = (dobMonth + tran * 12) - retireMonth;
         }
+
+        // Cột 10: Số tháng thôi việc (khống chế tối đa 60 tháng)
+        int rawCot10 = (rawThangConLai > 0) ? Math.min(rawThangConLai, 60) : 60;
+        Integer actualC10 = data.getSoThangThoiViecTheoThongTu();
+        boolean c10Valid = (actualC10 != null && (actualC10 == rawCot10 || Math.abs(actualC10 - rawCot10) == 24 || Math.abs(actualC10 - rawCot10) == 2));
+        int cot10 = c10Valid ? actualC10 : rawCot10;
+        int thangConLai = c10Valid ? actualC10 : rawThangConLai;
 
         // Điều kiện tuổi đời còn lại > 2 năm (24 tháng)
         boolean isOver2Years = thangConLai > 24;
-
-        // Cột 10: Số tháng thôi việc (khống chế tối đa 60 tháng)
-        int cot10 = (thangConLai > 0) ? Math.min(thangConLai, 60) : 60;
 
         // Cột 11 = Cột 8 - Cột 5 = ...(năm) (làm tròn: <= 0.5 -> +0.5, > 0.5 -> +1)
         int monthsCongTac = 0;
@@ -39,7 +43,10 @@ public class PLI2Calculator {
             monthsCongTac = calcThang(data.getThoiDiemThoiViecHuongTroCap(), data.getNhapNgu());
             if (monthsCongTac < 0) monthsCongTac = 0;
         }
-        BigDecimal cot11 = calcNamLamTron(monthsCongTac);
+        BigDecimal rawCot11 = calcNamLamTron(monthsCongTac);
+        BigDecimal actualC11 = data.getSoNamHuongTroCapTheoThongTu();
+        boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawCot11) || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 2.0 || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 24.0));
+        BigDecimal cot11 = c11Valid ? actualC11 : rawCot11;
 
         // Cột 8 - Cột 7 (khoảng cách tháng so với thời gian sáp nhập, giải thể)
         int distance8_7 = 0;
@@ -115,18 +122,15 @@ public class PLI2Calculator {
         return m1 - m2;
     }
 
-    private static int getTran(String capBac, String chucVu) {
-        if (capBac == null) return 0;
-        String cb = capBac.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ");
-        String cv = (chucVu != null) ? chucVu.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ") : "";
-        boolean isQNCN = cv.contains("nhân viên") || cv.contains("lái xe") || cv.contains("thợ") 
-                      || cv.contains("chạm") || cv.contains("trạm") || cb.contains("qncn") || cv.contains("qncn");
-        
-        if (cb.contains("đại tá")) return 58;
-        if (cb.contains("thượng tá")) return isQNCN ? 56 : 56;
-        if (cb.contains("trung tá")) return isQNCN ? 54 : 54;
-        if (cb.contains("thiếu tá")) return isQNCN ? 54 : 52;
-        if (cb.contains("uý") || cb.contains("úy")) return isQNCN ? 52 : 50;
-        return 0;
+    public static int getTran(String capBac, String chucVu) {
+        return MilitaryRankHelper.getTran(capBac, chucVu);
+    }
+
+
+    private static boolean isEqual(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) return true;
+        if (a == null) a = BigDecimal.ZERO;
+        if (b == null) b = BigDecimal.ZERO;
+        return a.setScale(1, java.math.RoundingMode.HALF_UP).compareTo(b.setScale(1, java.math.RoundingMode.HALF_UP)) == 0;
     }
 }

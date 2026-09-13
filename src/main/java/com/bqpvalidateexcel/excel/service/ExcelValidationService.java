@@ -27,6 +27,38 @@ import java.text.SimpleDateFormat;
 @Service
 @RequiredArgsConstructor
 public class ExcelValidationService {
+    public enum SheetType {
+        PL_I1, PL_I2, PL_I3, PL_II
+    }
+
+    private org.apache.poi.ss.usermodel.Sheet findSheetByType(org.apache.poi.ss.usermodel.Workbook workbook, SheetType type) {
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            org.apache.poi.ss.usermodel.Sheet s = workbook.getSheetAt(i);
+            String clean = cleanSheetName(s.getSheetName());
+            if (matchesTabName(clean, type)) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+
+    private boolean matchesTabName(String clean, SheetType type) {
+        if (clean == null || clean.isEmpty()) return false;
+        switch (type) {
+            case PL_I1:
+                return clean.contains("i.1") || clean.contains("i1");
+            case PL_I2:
+                return clean.contains("i.2") || clean.contains("i2");
+            case PL_I3:
+                return clean.contains("i.3") || clean.contains("i3");
+            case PL_II:
+                return (clean.contains("phulucii") || clean.contains("plii") || clean.endsWith("ii")) && !clean.contains("(2)");
+            default:
+                return false;
+        }
+    }
+
     private org.apache.poi.ss.usermodel.Sheet findSheet(org.apache.poi.ss.usermodel.Workbook workbook, String keyword) {
         String cleanKeyword = cleanSheetName(keyword);
         for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
@@ -57,12 +89,16 @@ public class ExcelValidationService {
         try (Workbook workbook = new XSSFWorkbook(inputStream)) {
             FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
 
-            // Tạo font chữ màu đỏ
+            // Tạo font chữ màu đỏ (Arial, font size 7) khi báo lỗi
             Font redFont = workbook.createFont();
+            redFont.setFontName("Arial");
+            redFont.setFontHeightInPoints((short) 7);
             redFont.setColor(IndexedColors.RED.getIndex());
             
-            // Font đỏ in đậm cho Header Note
+            // Font đỏ in đậm cho Header Note (Arial, font size 7)
             Font boldRedFont = workbook.createFont();
+            boldRedFont.setFontName("Arial");
+            boldRedFont.setFontHeightInPoints((short) 7);
             boldRedFont.setColor(IndexedColors.RED.getIndex());
             boldRedFont.setBold(true);
             
@@ -71,17 +107,20 @@ public class ExcelValidationService {
 
             List<ErrorRecordDto> errorRecords = new ArrayList<>();
 
-            Sheet sheetPLI1 = findSheet(workbook, "I.1");
+            Sheet sheetPLI1 = findSheetByType(workbook, SheetType.PL_I1);
+            if (sheetPLI1 == null) sheetPLI1 = findSheet(workbook, "I.1");
             if (sheetPLI1 != null) {
                 validateSheetPLI1(sheetPLI1, evaluator, redFont, boldRedFont, redStyleCache, errorRecords);
             }
 
-            Sheet sheetPLI2 = findSheet(workbook, "I.2");
+            Sheet sheetPLI2 = findSheetByType(workbook, SheetType.PL_I2);
+            if (sheetPLI2 == null) sheetPLI2 = findSheet(workbook, "I.2");
             if (sheetPLI2 != null) {
                 validateSheetPLI2(sheetPLI2, evaluator, redFont, boldRedFont, redStyleCache, errorRecords);
             }
 
-            Sheet sheetPLI3 = findSheet(workbook, "I.3");
+            Sheet sheetPLI3 = findSheetByType(workbook, SheetType.PL_I3);
+            if (sheetPLI3 == null) sheetPLI3 = findSheet(workbook, "I.3");
             if (sheetPLI3 != null) {
                 validateSheetPLI3(sheetPLI3, evaluator, redFont, boldRedFont, redStyleCache, errorRecords);
             }
@@ -164,6 +203,22 @@ public class ExcelValidationService {
         }
     }
 
+    private void checkColTimeWithLabel(Row row, int colIndex, String colLabel, BigDecimal actual, BigDecimal expected, String formula, List<String> errorDetails, Font redFont, java.util.Map<Short, CellStyle> redStyleCache) {
+        boolean expectedHasValue = expected != null && expected.compareTo(BigDecimal.ZERO) > 0;
+        boolean actualHasValue = actual != null && actual.compareTo(BigDecimal.ZERO) > 0;
+
+        if (expectedHasValue) {
+            if (!actualHasValue || !isEqualTime(expected, actual)) {
+                addError(row, colIndex, colLabel + ". Kết quả đúng: " + fmt(expected) + ". Công thức: " + formula, errorDetails, redFont, redStyleCache);
+            }
+        } else {
+            if (actualHasValue) {
+                String reason = (formula != null && formula.contains("không cần tính")) ? formula : "Không đủ điều kiện";
+                addError(row, colIndex, colLabel + ". Kết quả đúng: 0 (" + reason + ").", errorDetails, redFont, redStyleCache);
+            }
+        }
+    }
+
     private int calcThang(Date d1, Date d2) {
         if (d1 == null || d2 == null) return 0;
         java.util.Calendar c1 = java.util.Calendar.getInstance(); c1.setTime(d1);
@@ -183,19 +238,13 @@ public class ExcelValidationService {
     }
     
     private int getTran(String capBac) {
-        if (capBac == null) return 0;
-        String cb = capBac.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ");
-        if (cb.contains("đại tá")) return 58;
-        if (cb.contains("thượng tá")) return 56;
-        if (cb.contains("trung tá")) return 54;
-        if (cb.contains("thiếu tá")) return 52;
-        if (cb.contains("uý") || cb.contains("úy")) return 50;
-        return 0;
+        return MilitaryRankHelper.getTran(capBac, null);
     }
 
+
     private void writeNotesToRow(Row row, List<String> errorDetails, int noteColumnIndex, Font redFont) {
+        Cell noteCell = row.getCell(noteColumnIndex);
         if (!errorDetails.isEmpty()) {
-            Cell noteCell = row.getCell(noteColumnIndex);
             if (noteCell == null) {
                 noteCell = row.createCell(noteColumnIndex);
             }
@@ -206,6 +255,8 @@ public class ExcelValidationService {
             style.setWrapText(true);
             style.setFont(redFont);
             noteCell.setCellStyle(style);
+        } else if (noteCell != null) {
+            noteCell.setCellValue("");
         }
     }
     
@@ -225,9 +276,13 @@ public class ExcelValidationService {
     }
 
     private void validateSheetPLI1(Sheet sheet, FormulaEvaluator evaluator, Font redFont, Font boldRedFont, java.util.Map<Short, CellStyle> redStyleCache, List<ErrorRecordDto> errorRecords) {
-        int startRow = 12;
+        java.util.Map<Integer, Integer> colMap = ExcelParserUtils.findColMap(sheet, evaluator);
+        int headerRowIdx = ExcelParserUtils.getHeaderRowNum(sheet, evaluator);
+        int startRow = headerRowIdx != -1 ? headerRowIdx + 1 : 12;
+        int noteCol = colMap.containsKey(23) ? colMap.get(23) + 1 : 24;
         int rowNum = startRow;
-        createNoteHeader(sheet, 10, 24, boldRedFont);
+
+        createNoteHeader(sheet, headerRowIdx != -1 ? headerRowIdx : 10, noteCol, boldRedFont);
         String currentUnit = "";
         
         while (true) {
@@ -236,9 +291,10 @@ public class ExcelValidationService {
 
             currentUnit = checkUnitHeader(row, evaluator, currentUnit);
 
-            Optional<PhuLucI1> optData = parsePLI1.parse(row, rowNum, evaluator);
+            Optional<PhuLucI1> optData = parsePLI1.parse(row, rowNum, evaluator, colMap);
             if (optData.isEmpty()) {
-                String valB = ExcelParserUtils.getString(row, 1, evaluator).toLowerCase().replaceAll("\\s+", "");
+                int col1 = colMap.getOrDefault(1, 1);
+                String valB = ExcelParserUtils.getString(row, col1, evaluator).toLowerCase().replaceAll("\\s+", "");
                 if (valB.contains("cộng")) {
                     break;
                 }
@@ -280,45 +336,97 @@ public class ExcelValidationService {
             if (data.getThoiDiemNghiHuuHuongTroCap() != null) retStr = new java.text.SimpleDateFormat("MM/yyyy").format(data.getThoiDiemNghiHuuHuongTroCap());
             
             if (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10()) {
-                addError(row, 10, "Cột 10. Kết quả đúng: " + exp.getCot10() + ". Công thức: (Tháng sinh + Trần) - Cột 8 (VD: Khoảng cách từ " + retStr + " đến Mốc hưu chuẩn của " + bdStr + ")", errorDetails, redFont, redStyleCache);
+                addError(row, colMap.getOrDefault(10, 10), "Cột 10. Kết quả đúng: " + exp.getCot10() + ". Công thức: (Tháng sinh + Trần) - Cột 8 (VD: Khoảng cách từ " + retStr + " đến Mốc hưu chuẩn của " + bdStr + ")", errorDetails, redFont, redStyleCache);
             }
-            if (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && !isEqual(exp.getCot11(), data.getSoNamNghiHuuTruocTuoiTheoThongTu())) {
-                addError(row, 11, "Cột 11. Kết quả đúng: " + c11Fmt + ". Công thức: Cột 10 / 12 (làm tròn: <= 0,5 = 0,5; > 0,5 = 1) (VD: " + c10 + " / 12 = " + c11Fmt + " năm)", errorDetails, redFont, redStyleCache);
+            if (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && !isEqualTime(exp.getCot11(), data.getSoNamNghiHuuTruocTuoiTheoThongTu())) {
+                addError(row, colMap.getOrDefault(11, 11), "Cột 11. Kết quả đúng: " + c11Fmt + ". Công thức: Cột 10 / 12 (làm tròn: <= 0,5 = 0,5; > 0,5 = 1) (VD: " + exp.getCot10() + " / 12 = " + c11Fmt + " năm)", errorDetails, redFont, redStyleCache);
             }
-            if (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqual(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu())) {
-                addError(row, 12, "Cột 12. Kết quả đúng: " + c12Fmt + ". Công thức: Cột 8 - Cột 5 (làm tròn: <= 6 tháng + 0,5; > 6 tháng + 1) (VD: Khoảng cách từ " + nnStr + " đến " + retStr + " = " + c12Fmt + " năm)", errorDetails, redFont, redStyleCache);
+            if (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqualTime(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu())) {
+                addError(row, colMap.getOrDefault(12, 12), "Cột 12. Kết quả đúng: " + c12Fmt + ". Công thức: Cột 8 - Cột 5 (làm tròn: <= 6 tháng + 0,5; > 6 tháng + 1) (VD: Khoảng cách từ " + nnStr + " đến " + retStr + " = " + c12Fmt + " năm)", errorDetails, redFont, redStyleCache);
             }
 
-            checkCol(row, 13, data.getTuoiDoiCon5NamTroXuong1(), exp.getCot13(), 
-                "Cột 10 (<= 60) * 1 tháng * Cột 9 (VD: " + capC10 + " * 1 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
-            checkCol(row, 14, data.getTuoiDoiConTren5NamDenDuoi10Nam1(), exp.getCot14(), 
-                "Cột 10 (> 60) * 0.9 tháng * Cột 9 (VD: " + capC10 + " * 0.9 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
-            checkCol(row, 15, data.getTuoiDoiCon5NamTroXuong2(), exp.getCot15(), 
-                "Cột 10 (<= 60) * 0.5 tháng * Cột 9 (VD: " + capC10 + " * 0.5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
-            checkCol(row, 16, data.getTuoiDoiConTren5NamDenDuoi10Nam2(), exp.getCot16(), 
-                "Cột 10 (> 60) * 0.45 tháng * Cột 9 (VD: " + capC10 + " * 0.45 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+            int timeDiff = 0;
+            if (data.getThoiDiemNghiHuuHuongTroCap() != null && data.getThoiGianDonViSapNhapGiaiThe() != null) {
+                timeDiff = calcThang(data.getThoiDiemNghiHuuHuongTroCap(), data.getThoiGianDonViSapNhapGiaiThe());
+            }
+            boolean nhoHon12 = (data.getThoiGianDonViSapNhapGiaiThe() == null || timeDiff <= 12);
 
-            if (exp.getCot11().compareTo(BigDecimal.valueOf(2)) < 0) {
-                checkColWithLabel(row, 17, "Cột 17", data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), BigDecimal.ZERO, "Cột 11 < 2 năm không cần tính", errorDetails, redFont, redStyleCache);
-                checkColWithLabel(row, 18, "Cột 18", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1(), BigDecimal.ZERO, "Cột 11 < 2 năm không cần tính", errorDetails, redFont, redStyleCache);
-                checkColWithLabel(row, 19, "Cột 19", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1(), BigDecimal.ZERO, "Cột 11 < 2 năm không cần tính", errorDetails, redFont, redStyleCache);
-                checkColWithLabel(row, 20, "Cột 20", data.getG4ThangTienLuongHienHuongCho1NamNghi(), BigDecimal.ZERO, "Cột 11 < 2 năm không cần tính", errorDetails, redFont, redStyleCache);
-                checkColWithLabel(row, 21, "Cột 21", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2(), BigDecimal.ZERO, "Cột 11 < 2 năm không cần tính", errorDetails, redFont, redStyleCache);
-                checkColWithLabel(row, 22, "Cột 22", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2(), BigDecimal.ZERO, "Cột 11 < 2 năm không cần tính", errorDetails, redFont, redStyleCache);
+            boolean isOver60 = (exp.getCot11().compareTo(BigDecimal.valueOf(5)) > 0);
+
+            if (nhoHon12) {
+                if (!isOver60) {
+                    checkCol(row, colMap.getOrDefault(13, 13), data.getTuoiDoiCon5NamTroXuong1(), exp.getCot13(), 
+                        "Cột 10 (<= 60) * 1 tháng * Cột 9 (VD: " + capC10 + " * 1 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+                    checkColWithLabel(row, 14, "Cột 14", data.getTuoiDoiConTren5NamDenDuoi10Nam1(), BigDecimal.ZERO, "Cột 10 <= 60 tháng không có dữ liệu Cột 14", errorDetails, redFont, redStyleCache);
+                } else {
+                    checkColWithLabel(row, 13, "Cột 13", data.getTuoiDoiCon5NamTroXuong1(), BigDecimal.ZERO, "Cột 10 > 60 tháng không có dữ liệu Cột 13", errorDetails, redFont, redStyleCache);
+                    checkCol(row, colMap.getOrDefault(14, 14), data.getTuoiDoiConTren5NamDenDuoi10Nam1(), exp.getCot14(), 
+                        "Cột 10 (> 60) * 0.9 tháng * Cột 9 (VD: " + capC10 + " * 0.9 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+                }
+                checkColWithLabel(row, 15, "Cột 15", data.getTuoiDoiCon5NamTroXuong2(), BigDecimal.ZERO, "Nghỉ trong vòng 12 tháng không có dữ liệu Cột 15", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, 16, "Cột 16", data.getTuoiDoiConTren5NamDenDuoi10Nam2(), BigDecimal.ZERO, "Nghỉ trong vòng 12 tháng không có dữ liệu Cột 16", errorDetails, redFont, redStyleCache);
             } else {
-                checkCol(row, 17, data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), exp.getCot17(), 
-                    "Cột 11 * 5 tháng * Cột 9 (VD: " + c11Fmt + " * 5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
-                checkCol(row, 18, data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1(), exp.getCot18(), 
-                    "Cột 9 * " + hs18 + " tháng (VD: " + luongFmt + " * " + hs18 + ")", errorDetails, redFont, redStyleCache);
-                checkCol(row, 19, data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1(), exp.getCot19(), 
-                    "Cột 9 * " + hs19 + " * (Cột 12 - " + moc19 + ") (VD: " + luongFmt + " * " + hs19 + " * (" + c12Fmt + " - " + moc19 + "))", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, 13, "Cột 13", data.getTuoiDoiCon5NamTroXuong1(), BigDecimal.ZERO, "Nghỉ sau 12 tháng không có dữ liệu Cột 13", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, 14, "Cột 14", data.getTuoiDoiConTren5NamDenDuoi10Nam1(), BigDecimal.ZERO, "Nghỉ sau 12 tháng không có dữ liệu Cột 14", errorDetails, redFont, redStyleCache);
+                if (!isOver60) {
+                    checkCol(row, colMap.getOrDefault(15, 15), data.getTuoiDoiCon5NamTroXuong2(), exp.getCot15(), 
+                        "Cột 10 (<= 60) * 0.5 tháng * Cột 9 (VD: " + capC10 + " * 0.5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+                    checkColWithLabel(row, 16, "Cột 16", data.getTuoiDoiConTren5NamDenDuoi10Nam2(), BigDecimal.ZERO, "Cột 10 <= 60 tháng không có dữ liệu Cột 16", errorDetails, redFont, redStyleCache);
+                } else {
+                    checkColWithLabel(row, 15, "Cột 15", data.getTuoiDoiCon5NamTroXuong2(), BigDecimal.ZERO, "Cột 10 > 60 tháng không có dữ liệu Cột 15", errorDetails, redFont, redStyleCache);
+                    checkCol(row, colMap.getOrDefault(16, 16), data.getTuoiDoiConTren5NamDenDuoi10Nam2(), exp.getCot16(), 
+                        "Cột 10 (> 60) * 0.45 tháng * Cột 9 (VD: " + capC10 + " * 0.45 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+                }
+            }
 
-                checkCol(row, 20, data.getG4ThangTienLuongHienHuongCho1NamNghi(), exp.getCot20(), 
+            if (c10 < 24) {
+                checkColWithLabel(row, colMap.getOrDefault(17, 17), "Cột 17", data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), BigDecimal.ZERO, "Cột 10 < 24 tháng không có dữ liệu", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(18, 18), "Cột 18", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1(), BigDecimal.ZERO, "Cột 10 < 24 tháng không có dữ liệu", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(19, 19), "Cột 19", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1(), BigDecimal.ZERO, "Cột 10 < 24 tháng không có dữ liệu", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(20, 20), "Cột 20", data.getG4ThangTienLuongHienHuongCho1NamNghi(), BigDecimal.ZERO, "Cột 10 < 24 tháng không có dữ liệu", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(21, 21), "Cột 21", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2(), BigDecimal.ZERO, "Cột 10 < 24 tháng không có dữ liệu", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(22, 22), "Cột 22", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2(), BigDecimal.ZERO, "Cột 10 < 24 tháng không có dữ liệu", errorDetails, redFont, redStyleCache);
+            } else if (!isOver60) {
+                checkCol(row, colMap.getOrDefault(17, 17), data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), exp.getCot17(), 
+                    "Cột 11 * 5 tháng * Cột 9 (VD: " + c11Fmt + " * 5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
+                BigDecimal c18Actual = data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1();
+                BigDecimal c19Actual = data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1();
+                BigDecimal c18Plus19 = (exp.getCot18() != null ? exp.getCot18() : BigDecimal.ZERO)
+                        .add(exp.getCot19() != null ? exp.getCot19() : BigDecimal.ZERO);
+
+                if ((c19Actual == null || c19Actual.compareTo(BigDecimal.ZERO) == 0) && c18Actual != null && isEqual(c18Actual, c18Plus19)) {
+                    // Đơn vị cộng gộp Cột 18 và Cột 19 vào ô Cột 18 -> HỢP LỆ!
+                } else {
+                    checkCol(row, colMap.getOrDefault(18, 18), c18Actual, exp.getCot18(), 
+                        "Cột 9 * " + hs18 + " tháng (VD: " + luongFmt + " * " + hs18 + ")", errorDetails, redFont, redStyleCache);
+                    checkCol(row, colMap.getOrDefault(19, 19), c19Actual, exp.getCot19(), 
+                        "Cột 9 * " + hs19 + " * (Cột 12 - " + moc19 + ") (VD: " + luongFmt + " * " + hs19 + " * (" + c12Fmt + " - " + moc19 + "))", errorDetails, redFont, redStyleCache);
+                }
+
+                checkColWithLabel(row, colMap.getOrDefault(20, 20), "Cột 20", data.getG4ThangTienLuongHienHuongCho1NamNghi(), BigDecimal.ZERO, "Cột 10 <= 60 tháng không có kết quả 20, 21, 22", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(21, 21), "Cột 21", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2(), BigDecimal.ZERO, "Cột 10 <= 60 tháng không có kết quả 20, 21, 22", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(22, 22), "Cột 22", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2(), BigDecimal.ZERO, "Cột 10 <= 60 tháng không có kết quả 20, 21, 22", errorDetails, redFont, redStyleCache);
+            } else {
+                checkColWithLabel(row, colMap.getOrDefault(17, 17), "Cột 17", data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), BigDecimal.ZERO, "Cột 10 > 60 tháng không có kết quả 17, 18, 19", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(18, 18), "Cột 18", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac1(), BigDecimal.ZERO, "Cột 10 > 60 tháng không có kết quả 17, 18, 19", errorDetails, redFont, redStyleCache);
+                checkColWithLabel(row, colMap.getOrDefault(19, 19), "Cột 19", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong1(), BigDecimal.ZERO, "Cột 10 > 60 tháng không có kết quả 17, 18, 19", errorDetails, redFont, redStyleCache);
+
+                checkCol(row, colMap.getOrDefault(20, 20), data.getG4ThangTienLuongHienHuongCho1NamNghi(), exp.getCot20(), 
                     "Cột 11 * 4 tháng * Cột 9 (VD: " + c11Fmt + " * 4 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
-                checkCol(row, 21, data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2(), exp.getCot21(), 
-                    "Cột 9 * " + hs18 + " tháng (VD: " + luongFmt + " * " + hs18 + ")", errorDetails, redFont, redStyleCache);
-                checkCol(row, 22, data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2(), exp.getCot22(), 
-                    "Cột 9 * " + hs19 + " * (Cột 12 - " + moc19 + ") (VD: " + luongFmt + " * " + hs19 + " * (" + c12Fmt + " - " + moc19 + "))", errorDetails, redFont, redStyleCache);
+
+                BigDecimal c21Actual = data.getG5ThangTienLuongHienHuongCho20NamDauCongTac2();
+                BigDecimal c22Actual = data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong2();
+                BigDecimal c21Plus22 = (exp.getCot21() != null ? exp.getCot21() : BigDecimal.ZERO)
+                        .add(exp.getCot22() != null ? exp.getCot22() : BigDecimal.ZERO);
+
+                if ((c22Actual == null || c22Actual.compareTo(BigDecimal.ZERO) == 0) && c21Actual != null && isEqual(c21Actual, c21Plus22)) {
+                    // Đơn vị cộng gộp Cột 21 và Cột 22 vào ô Cột 21 -> HỢP LỆ!
+                } else {
+                    checkCol(row, colMap.getOrDefault(21, 21), c21Actual, exp.getCot21(), 
+                        "Cột 9 * " + hs18 + " tháng (VD: " + luongFmt + " * " + hs18 + ")", errorDetails, redFont, redStyleCache);
+                    checkCol(row, colMap.getOrDefault(22, 22), c22Actual, exp.getCot22(), 
+                        "Cột 9 * " + hs19 + " * (Cột 12 - " + moc19 + ") (VD: " + luongFmt + " * " + hs19 + " * (" + c12Fmt + " - " + moc19 + "))", errorDetails, redFont, redStyleCache);
+                }
             }
 
             BigDecimal expectedTotal = BigDecimal.ZERO;
@@ -335,24 +443,16 @@ public class ExcelValidationService {
 
             BigDecimal actualTotal = data.getTongCongSoTienTheoNghiDinhSo178() != null ? data.getTongCongSoTienTheoNghiDinhSo178() : BigDecimal.ZERO;
             if (!isEqual(expectedTotal, actualTotal)) {
-                addError(row, 23, "Cột 23. Kết quả đúng: " + fmt(expectedTotal) + ". Công thức: SUM(13..22)", errorDetails, redFont, redStyleCache);
+                addError(row, colMap.getOrDefault(23, 23), "Cột 23. Kết quả đúng: " + fmt(expectedTotal) + ". Công thức: SUM(13..22)", errorDetails, redFont, redStyleCache);
             }
 
-            writeNotesToRow(row, errorDetails, 24, redFont);
+            writeNotesToRow(row, errorDetails, noteCol, redFont);
 
             if (!errorDetails.isEmpty()) {
                 boolean c10Err = (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10());
-                boolean c11Err = (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && !isEqual(exp.getCot11(), data.getSoNamNghiHuuTruocTuoiTheoThongTu()));
-                boolean c12Err = (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqual(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu()));
+                boolean c11Err = (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && !isEqualTime(exp.getCot11(), data.getSoNamNghiHuuTruocTuoiTheoThongTu()));
+                boolean c12Err = (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqualTime(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu()));
                 boolean saiThoiGian = c10Err || c11Err || c12Err;
-
-                boolean diff24C10 = (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null 
-                        && Math.abs(data.getSoThangNghiHuuTruocTuoiTheoThongTu() - exp.getCot10()) == 24);
-                boolean diff24C11 = (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null 
-                        && Math.abs(data.getSoNamNghiHuuTruocTuoiTheoThongTu().doubleValue() - exp.getCot11().doubleValue()) == 2.0);
-                boolean diff24C12 = (data.getSoNamCongTacDongBHXHTheoThongTu() != null 
-                        && Math.abs(data.getSoNamCongTacDongBHXHTheoThongTu().doubleValue() - exp.getCot12().doubleValue()) == 2.0);
-                boolean hasDiff24Months = diff24C10 || diff24C11 || diff24C12;
 
                 boolean saiTongTien = !isEqual(expectedTotal, actualTotal);
                 String soTienSaiText = null;
@@ -368,28 +468,26 @@ public class ExcelValidationService {
 
                 String unit = (currentUnit != null && !currentUnit.isEmpty()) ? currentUnit : "BQP";
 
-                if (!hasDiff24Months) {
-                    errorRecords.add(ErrorRecordDto.builder()
-                            .sheetSource("I.1")
-                            .donVi(unit)
-                            .hoTen(data.getHoTen())
-                            .ngaySinh(data.getNgaySinh())
-                            .capBac(data.getCapBac())
-                            .chucVu(data.getChucVu())
-                            .nhapNgu(data.getNhapNgu())
-                            .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
-                            .nghiHuuND178(true)
-                            .nghiThoiViec(false)
-                            .nghiHuuND177(false)
-                            .saiThoiGianDuocHuong(saiThoiGian)
-                            .saiTongSoTien(saiTongTien)
-                            .tongTienThucTe(thucTe)
-                            .tongTienTinhLai(tinhLai)
-                            .tongTienChenhLech(chenhLech)
-                            .noiDungSoTienSai(soTienSaiText)
-                            .errorDetails(new ArrayList<>(errorDetails))
-                            .build());
-                }
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.1")
+                        .donVi(unit)
+                        .hoTen(data.getHoTen())
+                        .ngaySinh(data.getNgaySinh())
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
+                        .nghiHuuND178(true)
+                        .nghiThoiViec(false)
+                        .nghiHuuND177(false)
+                        .saiThoiGianDuocHuong(saiThoiGian)
+                        .saiTongSoTien(saiTongTien)
+                        .tongTienThucTe(thucTe)
+                        .tongTienTinhLai(tinhLai)
+                        .tongTienChenhLech(chenhLech)
+                        .noiDungSoTienSai(soTienSaiText)
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
             }
 
             rowNum++;
@@ -401,30 +499,38 @@ public class ExcelValidationService {
     private void validateSheetPLI2(Sheet sheet, FormulaEvaluator evaluator, Font redFont, Font boldRedFont, java.util.Map<Short, CellStyle> redStyleCache, List<ErrorRecordDto> errorRecords) {
         if (sheet == null) return;
 
-        // Tìm cột cuối cùng của bảng dữ liệu để đặt cột Ghi chú ngay sau đó (sau Cột 20 - Tổng số tiền)
-        int lastDataCol = 18;
-        Row headerRow6 = sheet.getRow(5);
-        Row headerRow9 = sheet.getRow(8);
-        for (int c = 18; c <= 30; c++) {
-            String text6 = headerRow6 != null ? ExcelParserUtils.getString(headerRow6, c, evaluator) : "";
-            String text9 = headerRow9 != null ? ExcelParserUtils.getString(headerRow9, c, evaluator) : "";
-            if ((!text6.isEmpty() || !text9.isEmpty()) && !text6.equalsIgnoreCase("Ghi chú") && !text9.equalsIgnoreCase("Ghi chú")) {
-                lastDataCol = c;
+        java.util.Map<Integer, Integer> colMap = ExcelParserUtils.findColMap(sheet, evaluator);
+        int headerRowIdx = ExcelParserUtils.getHeaderRowNum(sheet, evaluator);
+        int startRow = headerRowIdx != -1 ? headerRowIdx + 1 : 11;
+
+        int noteColumnIndex = 19;
+        if (!colMap.isEmpty()) {
+            for (int c : colMap.values()) {
+                noteColumnIndex = Math.max(noteColumnIndex, c + 1);
+            }
+        } else {
+            Row headerRow6 = sheet.getRow(5);
+            Row headerRow9 = sheet.getRow(8);
+            for (int c = 18; c <= 30; c++) {
+                String text6 = headerRow6 != null ? ExcelParserUtils.getString(headerRow6, c, evaluator) : "";
+                String text9 = headerRow9 != null ? ExcelParserUtils.getString(headerRow9, c, evaluator) : "";
+                if ((!text6.isEmpty() || !text9.isEmpty()) && !text6.equalsIgnoreCase("Ghi chú") && !text9.equalsIgnoreCase("Ghi chú")) {
+                    noteColumnIndex = Math.max(noteColumnIndex, c + 1);
+                }
             }
         }
-        int noteColumnIndex = lastDataCol + 1;
-        createNoteHeader(sheet, 5, noteColumnIndex, boldRedFont);
-        createNoteHeader(sheet, 8, noteColumnIndex, boldRedFont);
+
+        createNoteHeader(sheet, headerRowIdx != -1 ? headerRowIdx : 5, noteColumnIndex, boldRedFont);
         List<String> errorDetails = new ArrayList<>();
         String currentUnit = "";
         
-        for (int r = 11; r <= sheet.getLastRowNum(); r++) {
+        for (int r = startRow; r <= sheet.getLastRowNum(); r++) {
             Row row = sheet.getRow(r);
             if (row == null) continue;
 
             currentUnit = checkUnitHeader(row, evaluator, currentUnit);
 
-            Optional<PhuLucI2> optData = parsePLI2.parse(row, r, evaluator);
+            Optional<PhuLucI2> optData = parsePLI2.parse(row, r, evaluator, colMap);
             if (!optData.isPresent()) continue;
 
             PhuLucI2 data = optData.get();
@@ -457,50 +563,50 @@ public class ExcelValidationService {
 
             // Cột 10 = Số tháng thôi việc (khống chế tối đa 60 tháng)
             int cot10Actual = data.getSoThangThoiViecTheoThongTu() != null ? data.getSoThangThoiViecTheoThongTu() : 0;
-            checkCol(row, 10, BigDecimal.valueOf(cot10Actual), BigDecimal.valueOf(exp.getCot10()), 
+            checkCol(row, colMap.getOrDefault(10, 10), BigDecimal.valueOf(cot10Actual), BigDecimal.valueOf(exp.getCot10()), 
                 "Số tháng thôi việc khống chế tối đa 60 tháng (VD: " + c10 + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 11 = Cột 8 - Cột 5 = ...(năm) (làm tròn: <=0.5 -> +0.5, >0.5 -> +1)
-            checkCol(row, 11, data.getSoNamHuongTroCapTheoThongTu(), exp.getCot11(), 
+            checkColTimeWithLabel(row, colMap.getOrDefault(11, 11), "Cột 11", data.getSoNamHuongTroCapTheoThongTu(), exp.getCot11(), 
                 "Cột 8 - Cột 5 (VD: " + c8Str + " - " + c5Str + " = " + diffY + " năm " + diffM + " tháng -> " + c11Fmt + " năm)", errorDetails, redFont, redStyleCache);
 
             // Cột 12
-            checkCol(row, 12, data.getTroCap1LanChoSoThangCongTacCoDongBHXH1(), exp.getCot12(), 
+            checkCol(row, colMap.getOrDefault(12, 12), data.getTroCap1LanChoSoThangCongTacCoDongBHXH1(), exp.getCot12(), 
                 "Cột 10 * 0.8 tháng * Cột 9 (nếu > 60 tháng thì lấy 60 tháng) (VD: " + c10 + " * 0.8 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 13
-            checkCol(row, 13, data.getTroCap1LanChoSoNamCongTacDongBHXH1(), exp.getCot13(), 
+            checkCol(row, colMap.getOrDefault(13, 13), data.getTroCap1LanChoSoNamCongTacDongBHXH1(), exp.getCot13(), 
                 "Cột 11 * 1.5 tháng * Cột 9 (VD: " + c11Fmt + " * 1.5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 14
-            checkCol(row, 14, data.getTroCapTaoViecLam1(), exp.getCot14(), 
+            checkCol(row, colMap.getOrDefault(14, 14), data.getTroCapTaoViecLam1(), exp.getCot14(), 
                 "3 tháng * Cột 9 (VD: 3 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 15
-            checkCol(row, 15, data.getTroCap1LanChoSoThangCongTacCoDongBHXH2(), exp.getCot15(), 
+            checkCol(row, colMap.getOrDefault(15, 15), data.getTroCap1LanChoSoThangCongTacCoDongBHXH2(), exp.getCot15(), 
                 "Cột 10 * 0.4 tháng * Cột 9 (nếu > 60 tháng thì lấy 60 tháng) (VD: " + c10 + " * 0.4 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 16
-            checkCol(row, 16, data.getTroCap1LanChoSoNamCongTacDongBHXH2(), exp.getCot16(), 
+            checkCol(row, colMap.getOrDefault(16, 16), data.getTroCap1LanChoSoNamCongTacDongBHXH2(), exp.getCot16(), 
                 "Cột 11 * 1.5 tháng * Cột 9 (VD: " + c11Fmt + " * 1.5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 17
-            checkCol(row, 17, data.getTroCapTaoViecLam2(), exp.getCot17(), 
+            checkCol(row, colMap.getOrDefault(17, 17), data.getTroCapTaoViecLam2(), exp.getCot17(), 
                 "3 tháng * Cột 9 (VD: 3 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
 
             // Cột 18 = SUM(12..17)
             String sumFormula = exp.isWithin12Months()
                 ? "Cột 12 + Cột 13 + Cột 14 (VD: " + fmt(exp.getCot12()) + " + " + fmt(exp.getCot13()) + " + " + fmt(exp.getCot14()) + ")"
                 : "Cột 15 + Cột 16 + Cột 17 (VD: " + fmt(exp.getCot15()) + " + " + fmt(exp.getCot16()) + " + " + fmt(exp.getCot17()) + ")";
-            checkCol(row, 18, data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo178(), exp.getCot18(), 
+            checkCol(row, colMap.getOrDefault(18, 18), data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo178(), exp.getCot18(), 
                 sumFormula, errorDetails, redFont, redStyleCache);
 
             // Cột 20 = Cột 18 + Cột 19
-            BigDecimal c19Val = ExcelParserUtils.getBigDecimal(row, 19, evaluator);
-            BigDecimal c20Val = ExcelParserUtils.getBigDecimal(row, 20, evaluator);
+            BigDecimal c19Val = ExcelParserUtils.getBigDecimal(row, colMap.getOrDefault(19, 19), evaluator);
+            BigDecimal c20Val = ExcelParserUtils.getBigDecimal(row, colMap.getOrDefault(20, 20), evaluator);
             if (c20Val != null) {
                 BigDecimal exp20 = exp.getCot18().add(c19Val != null ? c19Val : BigDecimal.ZERO);
-                checkCol(row, 20, c20Val, exp20, 
+                checkCol(row, colMap.getOrDefault(20, 20), c20Val, exp20, 
                     "Cột 18 + Cột 19 (VD: " + fmt(exp.getCot18()) + " + " + fmt(c19Val) + ")", errorDetails, redFont, redStyleCache);
             }
 
@@ -508,7 +614,7 @@ public class ExcelValidationService {
 
             if (!errorDetails.isEmpty()) {
                 boolean c10Err = (cot10Actual != exp.getCot10());
-                boolean c11Err = !isEqual(exp.getCot11(), data.getSoNamHuongTroCapTheoThongTu());
+                boolean c11Err = !isEqualTime(exp.getCot11(), data.getSoNamHuongTroCapTheoThongTu());
                 boolean saiThoiGian = c10Err || c11Err;
 
                 boolean diff24C10 = Math.abs(cot10Actual - exp.getCot10()) == 24;
@@ -572,41 +678,36 @@ public class ExcelValidationService {
     private void validateSheetPLI3(Sheet sheet, FormulaEvaluator evaluator, Font redFont, Font boldRedFont, java.util.Map<Short, CellStyle> redStyleCache, List<ErrorRecordDto> errorRecords) {
         if (sheet == null) return;
 
-        // Kiểm tra xem sheet có cột 'Đơn vị' ở cột index 5 hay không
+        java.util.Map<Integer, Integer> colMap = ExcelParserUtils.findColMap(sheet, evaluator);
+        int headerRowIdx = ExcelParserUtils.getHeaderRowNum(sheet, evaluator);
+        int startRow = headerRowIdx != -1 ? headerRowIdx + 1 : 10;
+
         boolean hasDonVi = false;
-        Row headerRow6 = sheet.getRow(5);
-        if (headerRow6 != null) {
-            String h5 = ExcelParserUtils.getString(headerRow6, 5, evaluator).toLowerCase();
-            if (h5.contains("đơn vị") || h5.contains("don vi")) {
-                hasDonVi = true;
+        if (colMap.isEmpty()) {
+            Row headerRow6 = sheet.getRow(5);
+            if (headerRow6 != null) {
+                String h5 = ExcelParserUtils.getString(headerRow6, 5, evaluator).toLowerCase();
+                if (h5.contains("đơn vị") || h5.contains("don vi")) {
+                    hasDonVi = true;
+                }
             }
         }
         int offset = hasDonVi ? 1 : 0;
 
-        // Tìm cột cuối cùng của bảng dữ liệu để đặt cột Ghi chú ngay sau đó (sau Cột 15 - Tổng số tiền)
-        int lastDataCol = 15 + offset;
-        Row headerRow8 = sheet.getRow(7);
-        for (int c = 14 + offset; c <= 25; c++) {
-            String text6 = headerRow6 != null ? ExcelParserUtils.getString(headerRow6, c, evaluator) : "";
-            String text8 = headerRow8 != null ? ExcelParserUtils.getString(headerRow8, c, evaluator) : "";
-            if ((!text6.isEmpty() || !text8.isEmpty()) && !text6.equalsIgnoreCase("Ghi chú") && !text8.equalsIgnoreCase("Ghi chú")) {
-                lastDataCol = Math.max(lastDataCol, c);
-            }
-        }
-        int noteColumnIndex = lastDataCol + 1;
-        createNoteHeader(sheet, 5, noteColumnIndex, boldRedFont);
-        createNoteHeader(sheet, 7, noteColumnIndex, boldRedFont);
+        int noteColumnIndex = colMap.containsKey(17) ? colMap.get(17) + 1 : (colMap.containsKey(15) ? colMap.get(15) + 1 : (16 + offset));
+
+        createNoteHeader(sheet, headerRowIdx != -1 ? headerRowIdx : 5, noteColumnIndex, boldRedFont);
 
         List<String> errorDetails = new ArrayList<>();
         String currentUnit = "";
         
-        for (int r = 10; r <= sheet.getLastRowNum(); r++) {
+        for (int r = startRow; r <= sheet.getLastRowNum(); r++) {
             Row row = sheet.getRow(r);
             if (row == null) continue;
 
             currentUnit = checkUnitHeader(row, evaluator, currentUnit);
             
-            Optional<PhuLucI3> optData = parsePLI3.parse(row, r, evaluator);
+            Optional<PhuLucI3> optData = parsePLI3.parse(row, r, evaluator, colMap);
             if (!optData.isPresent()) continue;
             
             PhuLucI3 data = optData.get();
@@ -643,36 +744,34 @@ public class ExcelValidationService {
             String vdC10 = (!nnStr.isEmpty() && !retStr.isEmpty()) ? " (VD: Khoảng cách từ " + nnStr + " đến " + retStr + " = " + c10Fmt + " năm)" : "";
 
             // Cột 10 = cột 8 - cột 5, với điều kiện làm tròn < 6 tháng + 0,5, > 6 tháng + 1 (tính năm)
-            checkColWithLabel(row, 10 + offset, "Cột 10", data.getSoThangThoiViecTheoHuongDan(), exp.getCot10(), 
+            checkColTimeWithLabel(row, colMap.getOrDefault(10, 10 + offset), "Cột 10", data.getSoThangThoiViecTheoHuongDan(), exp.getCot10(), 
                 "Cột 8 - Cột 5 (Nghỉ hưu - Nhập ngũ)" + vdC10, errorDetails, redFont, redStyleCache);
                 
             // Cột 11 = (cột 2 + trần quân hàm) - cột 8 , với điều kiện làm tròn < 6 tháng + 0,5, > 6 tháng + 1 (tính năm)
-            if (data.getThoiGianDonViSapNhapGiaiThe() == null) {
-                checkColWithLabel(row, 11 + offset, "Cột 11", data.getSoNamHuongTroCapTheoHuongDan(), exp.getCot11(), 
-                    "(Cột 2 + Trần) - Cột 8", errorDetails, redFont, redStyleCache);
-            }
+            checkColTimeWithLabel(row, colMap.getOrDefault(11, 11 + offset), "Cột 11", data.getSoNamHuongTroCapTheoHuongDan(), exp.getCot11(), 
+                "(Cột 2 + Trần) - Cột 8", errorDetails, redFont, redStyleCache);
 
             // Cột 12: 5 tháng tiền lương hiện hưởng cho 1 năm nghỉ sớm
-            checkColWithLabel(row, 12 + offset, "Cột 12", data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), exp.getCot12(), 
+            checkColWithLabel(row, colMap.getOrDefault(12, 12 + offset), "Cột 12", data.getG5ThangTienLuongHienHuongCho1NamNghiSom(), exp.getCot12(), 
                 "Cột 11 * 5 tháng * Cột 9 (VD: " + c11Fmt + " * 5 * " + luongFmt + ")", errorDetails, redFont, redStyleCache);
                 
             // Cột 13: 5 tháng tiền lương hiện hưởng cho 15/20 năm đầu công tác
-            checkColWithLabel(row, 13 + offset, "Cột 13", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac(), exp.getCot13(), 
+            checkColWithLabel(row, colMap.getOrDefault(13, 13 + offset), "Cột 13", data.getG5ThangTienLuongHienHuongCho20NamDauCongTac(), exp.getCot13(), 
                 "Cột 9 * 5 tháng (VD: " + luongFmt + " * 5)", errorDetails, redFont, redStyleCache);
                 
             // Cột 14: Từ năm thứ 16/21 trở đi, cứ mỗi năm công tác hưởng 1/2 tháng lương hiện hưởng
-            checkColWithLabel(row, 14 + offset, "Cột 14", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong(), exp.getCot14(), 
+            checkColWithLabel(row, colMap.getOrDefault(14, 14 + offset), "Cột 14", data.getTuNamThu21TroDiCuMoiNamCongTacHuong12ThangLuongHienHuong(), exp.getCot14(), 
                 "Cột 9 * 0,5 * (Cột 10 - " + moc14Str + " năm) (VD: " + luongFmt + " * 0.5 * (" + c10Fmt + " - " + moc14Str + "))", errorDetails, redFont, redStyleCache);
                 
             // Cột 15: Tổng cộng số tiền
-            checkColWithLabel(row, 15 + offset, "Cột 15", data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo177(), exp.getCot15(), 
+            checkColWithLabel(row, colMap.getOrDefault(17, colMap.getOrDefault(15, 15 + offset)), "Cột 15", data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo177(), exp.getCot15(), 
                 "Cột 12 + Cột 13 + Cột 14 (VD: " + fmt(exp.getCot12()) + " + " + fmt(exp.getCot13()) + " + " + fmt(exp.getCot14()) + ")", errorDetails, redFont, redStyleCache);
                 
             writeNotesToRow(row, errorDetails, noteColumnIndex, redFont);
 
             if (!errorDetails.isEmpty()) {
-                boolean c10Err = (data.getSoThangThoiViecTheoHuongDan() == null || !isEqual(exp.getCot10(), data.getSoThangThoiViecTheoHuongDan()));
-                boolean c11Err = (data.getThoiGianDonViSapNhapGiaiThe() == null && (data.getSoNamHuongTroCapTheoHuongDan() == null || !isEqual(exp.getCot11(), data.getSoNamHuongTroCapTheoHuongDan())));
+                boolean c10Err = (data.getSoThangThoiViecTheoHuongDan() == null || !isEqualTime(exp.getCot10(), data.getSoThangThoiViecTheoHuongDan()));
+                boolean c11Err = (data.getSoNamHuongTroCapTheoHuongDan() == null || !isEqualTime(exp.getCot11(), data.getSoNamHuongTroCapTheoHuongDan()));
                 boolean saiThoiGian = c10Err || c11Err;
 
                 boolean diff24C10 = (data.getSoThangThoiViecTheoHuongDan() != null 
@@ -740,6 +839,13 @@ public class ExcelValidationService {
         if (a == null) a = BigDecimal.ZERO;
         if (b == null) b = BigDecimal.ZERO;
         return a.setScale(0, RoundingMode.HALF_UP).compareTo(b.setScale(0, RoundingMode.HALF_UP)) == 0;
+    }
+
+    private boolean isEqualTime(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) return true;
+        if (a == null) a = BigDecimal.ZERO;
+        if (b == null) b = BigDecimal.ZERO;
+        return a.setScale(1, RoundingMode.HALF_UP).compareTo(b.setScale(1, RoundingMode.HALF_UP)) == 0;
     }
 
     private String checkUnitHeader(Row row, FormulaEvaluator evaluator, String currentUnit) {
@@ -853,17 +959,41 @@ public class ExcelValidationService {
         sheet.setColumnWidth(16, 256 * 35);
     }
 
+    private void safeAddMergedRegion(Sheet sheet, org.apache.poi.ss.util.CellRangeAddress newRegion) {
+        if (newRegion == null) return;
+        if (newRegion.getFirstRow() == newRegion.getLastRow() && newRegion.getFirstColumn() == newRegion.getLastColumn()) {
+            return;
+        }
+        if (newRegion.getFirstRow() > newRegion.getLastRow() || newRegion.getFirstColumn() > newRegion.getLastColumn()) {
+            return;
+        }
+        for (int i = sheet.getNumMergedRegions() - 1; i >= 0; i--) {
+            org.apache.poi.ss.util.CellRangeAddress existing = sheet.getMergedRegion(i);
+            if (existing.intersects(newRegion)) {
+                log.warn("Merged region {} intersects with existing {}. Removing conflicting region to avoid IllegalStateException.", newRegion, existing);
+                sheet.removeMergedRegion(i);
+            }
+        }
+        try {
+            sheet.addMergedRegion(newRegion);
+        } catch (Exception e) {
+            log.warn("Failed to add merged region {}: {}", newRegion, e.getMessage());
+        }
+    }
+
     private void writeErrorsToPLII(Workbook workbook, List<ErrorRecordDto> errorRecords, FormulaEvaluator evaluator) {
         if (errorRecords == null || errorRecords.isEmpty()) return;
 
         // 1. Tìm hoặc tạo sheet Phụ lục II
-        Sheet sheetPLII = null;
-        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-            String sName = workbook.getSheetName(i);
-            String clean = cleanSheetName(sName);
-            if (clean.equals("phulucii") || clean.equals("plii")) {
-                sheetPLII = workbook.getSheetAt(i);
-                break;
+        Sheet sheetPLII = findSheetByType(workbook, SheetType.PL_II);
+        if (sheetPLII == null) {
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                String sName = workbook.getSheetName(i);
+                String clean = cleanSheetName(sName);
+                if (clean.equals("phulucii") || clean.equals("plii")) {
+                    sheetPLII = workbook.getSheetAt(i);
+                    break;
+                }
             }
         }
         if (sheetPLII == null) {
@@ -974,6 +1104,12 @@ public class ExcelValidationService {
                 headerEndRow = Math.max(headerEndRow, range.getLastRow());
             }
         }
+        for (int i = 0; i < sheetPLII.getNumMergedRegions(); i++) {
+            org.apache.poi.ss.util.CellRangeAddress range = sheetPLII.getMergedRegion(i);
+            if (range.getFirstRow() <= headerEndRow && range.getLastRow() >= headerRowNum) {
+                maxColFound = Math.max(maxColFound, range.getLastColumn());
+            }
+        }
 
         // Tự chèn thêm cột Thực tế nếu thiếu
         if (colThucTe == -1) {
@@ -993,7 +1129,7 @@ public class ExcelValidationService {
                     Cell emptyCell = rNext.createCell(colThucTe);
                     emptyCell.setCellStyle(headerStyle);
                 }
-                sheetPLII.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colThucTe, colThucTe));
+                safeAddMergedRegion(sheetPLII, new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colThucTe, colThucTe));
             }
             if (headerEndRow + 1 <= sheetPLII.getLastRowNum()) {
                 Row numRow = sheetPLII.getRow(headerEndRow + 1);
@@ -1023,7 +1159,7 @@ public class ExcelValidationService {
                     Cell emptyCell = rNext.createCell(colTinhLai);
                     emptyCell.setCellStyle(headerStyle);
                 }
-                sheetPLII.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colTinhLai, colTinhLai));
+                safeAddMergedRegion(sheetPLII, new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colTinhLai, colTinhLai));
             }
             if (headerEndRow + 1 <= sheetPLII.getLastRowNum()) {
                 Row numRow = sheetPLII.getRow(headerEndRow + 1);
@@ -1061,7 +1197,7 @@ public class ExcelValidationService {
                     org.apache.poi.ss.util.CellRangeAddress range = sheetPLII.getMergedRegion(i);
                     if (range.getFirstColumn() == oldGiaiThich && range.getLastColumn() == oldGiaiThich) {
                         sheetPLII.removeMergedRegion(i);
-                        sheetPLII.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(
+                        safeAddMergedRegion(sheetPLII, new org.apache.poi.ss.util.CellRangeAddress(
                             range.getFirstRow(), range.getLastRow(), colGiaiThich, colGiaiThich));
                     }
                 }
@@ -1084,7 +1220,7 @@ public class ExcelValidationService {
                     Cell emptyCell = rNext.createCell(colChenhLech);
                     emptyCell.setCellStyle(headerStyle);
                 }
-                sheetPLII.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colChenhLech, colChenhLech));
+                safeAddMergedRegion(sheetPLII, new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colChenhLech, colChenhLech));
             }
             if (headerEndRow + 1 <= sheetPLII.getLastRowNum()) {
                 Row numRow = sheetPLII.getRow(headerEndRow + 1);
@@ -1114,7 +1250,7 @@ public class ExcelValidationService {
                     Cell emptyCell = rNext.createCell(colGiaiThich);
                     emptyCell.setCellStyle(headerStyle);
                 }
-                sheetPLII.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colGiaiThich, colGiaiThich));
+                safeAddMergedRegion(sheetPLII, new org.apache.poi.ss.util.CellRangeAddress(headerRowNum, headerEndRow, colGiaiThich, colGiaiThich));
             }
             if (headerEndRow + 1 <= sheetPLII.getLastRowNum()) {
                 Row numRow = sheetPLII.getRow(headerEndRow + 1);

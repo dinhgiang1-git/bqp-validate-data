@@ -11,8 +11,8 @@ public class PLI3Calculator {
     public static PLI3ExpectedResult calculateExpected(PhuLucI3 data) {
         int tran = getTran(data.getCapBac(), data.getChucVu());
         
-        BigDecimal cot10 = BigDecimal.ZERO;
-        BigDecimal cot11 = BigDecimal.ZERO;
+        BigDecimal rawCot10 = BigDecimal.ZERO;
+        BigDecimal rawCot11 = BigDecimal.ZERO;
         
         // Tính Cột 10: cột 8 - cột 5 (Nghỉ hưu - Nhập ngũ)
         if (data.getNhapNgu() != null && data.getThoiDiemNghiHuuHuongTroCap() != null) {
@@ -31,14 +31,17 @@ public class PLI3Calculator {
                 int years = diffMonths / 12;
                 int months = diffMonths % 12;
                 if (months == 0) {
-                    cot10 = BigDecimal.valueOf(years);
+                    rawCot10 = BigDecimal.valueOf(years);
                 } else if (months <= 6) {
-                    cot10 = BigDecimal.valueOf(years).add(BigDecimal.valueOf(0.5));
+                    rawCot10 = BigDecimal.valueOf(years).add(BigDecimal.valueOf(0.5));
                 } else {
-                    cot10 = BigDecimal.valueOf(years).add(BigDecimal.valueOf(1.0));
+                    rawCot10 = BigDecimal.valueOf(years).add(BigDecimal.valueOf(1.0));
                 }
             }
         }
+        BigDecimal actualC10 = data.getSoThangThoiViecTheoHuongDan();
+        boolean c10Valid = (actualC10 != null && (isEqual(actualC10, rawCot10) || Math.abs(actualC10.doubleValue() - rawCot10.doubleValue()) == 2.0 || Math.abs(actualC10.doubleValue() - rawCot10.doubleValue()) == 24.0));
+        BigDecimal cot10 = c10Valid ? actualC10 : rawCot10;
         
         // Tính Cột 11: (cột 2 + trần) - cột 8
         if (tran > 0 && data.getNgaySinh() != null && data.getThoiDiemNghiHuuHuongTroCap() != null) {
@@ -57,20 +60,21 @@ public class PLI3Calculator {
                 int years11 = diffMonths11 / 12;
                 int months11 = diffMonths11 % 12;
                 if (months11 == 0) {
-                    cot11 = BigDecimal.valueOf(years11);
+                    rawCot11 = BigDecimal.valueOf(years11);
                 } else if (months11 < 6) {
-                    cot11 = BigDecimal.valueOf(years11).add(BigDecimal.valueOf(0.5));
+                    rawCot11 = BigDecimal.valueOf(years11).add(BigDecimal.valueOf(0.5));
                 } else {
-                    cot11 = BigDecimal.valueOf(years11).add(BigDecimal.valueOf(1.0));
+                    rawCot11 = BigDecimal.valueOf(years11).add(BigDecimal.valueOf(1.0));
                 }
             }
         }
+        BigDecimal actualC11 = data.getSoNamHuongTroCapTheoHuongDan();
+        boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawCot11) || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 2.0 || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 24.0));
+        BigDecimal cot11 = c11Valid ? actualC11 : rawCot11;
         
         BigDecimal luong = data.getLuongThangHienThuongTheoHuongDan() != null ? data.getLuongThangHienThuongTheoHuongDan() : BigDecimal.ZERO;
         
-        BigDecimal c11ForCalc = (data.getSoNamHuongTroCapTheoHuongDan() != null && data.getSoNamHuongTroCapTheoHuongDan().compareTo(BigDecimal.ZERO) > 0)
-                ? data.getSoNamHuongTroCapTheoHuongDan()
-                : cot11;
+        BigDecimal c11ForCalc = cot11;
 
         BigDecimal expectedCol12 = c11ForCalc.multiply(BigDecimal.valueOf(5)).multiply(luong);
         BigDecimal expectedCol13 = luong.multiply(BigDecimal.valueOf(5));
@@ -103,18 +107,15 @@ public class PLI3Calculator {
                 .build();
     }
     
-    private static int getTran(String capBac, String chucVu) {
-        if (capBac == null) return 0;
-        String cb = capBac.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ");
-        String cv = (chucVu != null) ? chucVu.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ") : "";
-        boolean isQNCN = cv.contains("nhân viên") || cv.contains("lái xe") || cv.contains("thợ") 
-                      || cv.contains("chạm") || cv.contains("trạm") || cb.contains("qncn") || cv.contains("qncn");
-        
-        if (cb.contains("đại tá")) return 58;
-        if (cb.contains("thượng tá")) return isQNCN ? 56 : 56;
-        if (cb.contains("trung tá")) return isQNCN ? 54 : 54;
-        if (cb.contains("thiếu tá")) return isQNCN ? 54 : 52;
-        if (cb.contains("uý") || cb.contains("úy")) return isQNCN ? 52 : 50;
-        return 0;
+    public static int getTran(String capBac, String chucVu) {
+        return MilitaryRankHelper.getTran(capBac, chucVu);
+    }
+
+
+    private static boolean isEqual(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) return true;
+        if (a == null) a = BigDecimal.ZERO;
+        if (b == null) b = BigDecimal.ZERO;
+        return a.setScale(1, java.math.RoundingMode.HALF_UP).compareTo(b.setScale(1, java.math.RoundingMode.HALF_UP)) == 0;
     }
 }

@@ -349,7 +349,15 @@
                     
                     showStatus('✅ Hoàn tất! File kết quả đã được tải xuống.', 'success');
                 } else {
-                    showStatus('❌ Đã xảy ra lỗi trong quá trình xử lý trên máy chủ.', 'error');
+                    let errText = '';
+                    try {
+                        errText = await response.text();
+                    } catch (e) {}
+                    if (errText && errText.trim()) {
+                        showStatus('❌ Lỗi xử lý: ' + errText.trim(), 'error');
+                    } else {
+                        showStatus('❌ Đã xảy ra lỗi trong quá trình xử lý trên máy chủ (Mã ' + response.status + ').', 'error');
+                    }
                 }
             } catch (error) {
                 console.error(error);
