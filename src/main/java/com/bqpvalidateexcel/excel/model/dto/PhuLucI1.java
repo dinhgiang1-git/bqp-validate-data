@@ -29,7 +29,7 @@ public class PhuLucI1 {
     private Date thoiDiemNghiHuuHuongTroCap;
     private BigDecimal luongThangHienThuongTheoThongTu;
     private Integer soThangNghiHuuTruocTuoiTheoThongTu;
-    private Integer soNamNghiHuuTruocTuoiTheoThongTu;
+    private BigDecimal soNamNghiHuuTruocTuoiTheoThongTu;
     private BigDecimal soNamCongTacDongBHXHTheoThongTu;
 
     //Trợ cấp một lần cho thời gian nghỉ sớm
@@ -49,9 +49,9 @@ public class PhuLucI1 {
     private BigDecimal tongSoTien;
 
     public boolean isBlank() {
-        return hoTen.isEmpty() && hoTen.isEmpty()
-                && capBac.isEmpty() && capBac.isEmpty()
-                && chucVu.isEmpty() && chucVu.isEmpty()
-                && kQDanhGiaCB.isEmpty() && kQDanhGiaCB.isEmpty();
+        return (hoTen == null || hoTen.trim().isEmpty())
+                && (capBac == null || capBac.trim().isEmpty())
+                && (chucVu == null || chucVu.trim().isEmpty())
+                && (kQDanhGiaCB == null || kQDanhGiaCB.trim().isEmpty());
     }
 }

@@ -33,7 +33,7 @@ public class ExcelRowParsePLI2 {
                 .thoiDiemThoiViecHuongTroCap(ExcelParserUtils.getDate(row, 8, formulaEvaluator))
                 .luongThangHienThuongTheoThongTu(ExcelParserUtils.getBigDecimal(row, 9, formulaEvaluator))
                 .soThangThoiViecTheoThongTu(ExcelParserUtils.getInteger(row, 10, formulaEvaluator))
-                .soNamHuongTroCapTheoThongTu(ExcelParserUtils.getInteger(row, 11, formulaEvaluator))
+                .soNamHuongTroCapTheoThongTu(ExcelParserUtils.getBigDecimal(row, 11, formulaEvaluator))
                 .troCap1LanChoSoThangCongTacCoDongBHXH1(ExcelParserUtils.getBigDecimal(row, 12, formulaEvaluator))
                 .troCap1LanChoSoNamCongTacDongBHXH1(ExcelParserUtils.getBigDecimal(row, 13, formulaEvaluator))
                 .troCapTaoViecLam1(ExcelParserUtils.getBigDecimal(row, 14, formulaEvaluator))

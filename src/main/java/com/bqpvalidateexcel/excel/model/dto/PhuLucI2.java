@@ -29,7 +29,7 @@ public class PhuLucI2 {
     
     private BigDecimal luongThangHienThuongTheoThongTu;
     private Integer soThangThoiViecTheoThongTu;
-    private Integer soNamHuongTroCapTheoThongTu;
+    private BigDecimal soNamHuongTroCapTheoThongTu;
 
     // Nghỉ trong 12 tháng đầu kể từ khi có quyết định sắp xếp
     private BigDecimal troCap1LanChoSoThangCongTacCoDongBHXH1;
@@ -44,9 +44,9 @@ public class PhuLucI2 {
     private BigDecimal tongCongSoTienNghiThoiViecTheoNghiDinhSo178;
 
     public boolean isBlank() {
-        return (hoTen == null || hoTen.isEmpty())
-                && (capBac == null || capBac.isEmpty())
-                && (chucVu == null || chucVu.isEmpty())
-                && (kQDanhGiaCB == null || kQDanhGiaCB.isEmpty());
+        return (hoTen == null || hoTen.trim().isEmpty())
+                && (capBac == null || capBac.trim().isEmpty())
+                && (chucVu == null || chucVu.trim().isEmpty())
+                && (kQDanhGiaCB == null || kQDanhGiaCB.trim().isEmpty());
     }
 }

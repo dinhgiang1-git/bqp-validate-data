@@ -18,7 +18,8 @@ public class PhuLucI1Validator {
 
         if (data.getKQDanhGiaCB() != null && !data.getKQDanhGiaCB().trim().isEmpty()) {
             // Kiểm tra định dạng T,T,T (ví dụ)
-            String[] parts = data.getKQDanhGiaCB().split(",");
+            String raw = data.getKQDanhGiaCB().replace('\u00A0', ' ').replaceAll("\\s+", "");
+            String[] parts = raw.split(",");
             List<String> validGrades = Arrays.asList("XS", "T", "HT");
             for (String part : parts) {
                 if (!validGrades.contains(part.trim().toUpperCase())) {
@@ -35,7 +36,7 @@ public class PhuLucI1Validator {
             errors.add("Số tháng nghỉ hưu trước tuổi không được âm.");
         }
 
-        if (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && data.getSoNamNghiHuuTruocTuoiTheoThongTu() < 0) {
+        if (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && data.getSoNamNghiHuuTruocTuoiTheoThongTu().compareTo(java.math.BigDecimal.ZERO) < 0) {
             errors.add("Số năm nghỉ hưu trước tuổi không được âm.");
         }
 
