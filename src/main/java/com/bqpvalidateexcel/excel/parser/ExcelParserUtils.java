@@ -289,28 +289,40 @@ public class ExcelParserUtils {
                 }
 
                 if (colLuongNum == 10 && colHoTenNum == 2) {
-                    // Mẫu Binh chủng (Số TT là 1, Họ tên là 2, Lương là 10, các cột tính toán dịch +1)
-                    colMap.put(0, rowMap.get(1)); // STT
-                    for (int k = 1; k <= 35; k++) {
+                    // Mẫu cũ có thêm cột "Đánh giá xếp loại cán bộ" (Số TT: 1, Họ tên: 2... Lương: 10, các cột chế độ từ 11..35)
+                    colMap.put(1, rowMap.get(1)); // STT
+                    colMap.put(2, rowMap.get(2)); // Họ tên
+                    colMap.put(3, rowMap.get(3)); // Ngày sinh
+                    colMap.put(4, rowMap.get(4)); // Cấp bậc
+                    colMap.put(5, rowMap.get(5)); // Chức vụ
+                    colMap.put(6, rowMap.get(6)); // Nhập ngũ
+                    // Cột 7 cũ là Đánh giá xếp loại cán bộ -> bỏ qua
+                    colMap.put(7, rowMap.get(8)); // Sáp nhập
+                    colMap.put(8, rowMap.get(9)); // Thời điểm nghỉ
+                    colMap.put(9, rowMap.get(10)); // Lương
+                    for (int k = 10; k <= 35; k++) {
                         if (rowMap.containsKey(k + 1)) {
                             colMap.put(k, rowMap.get(k + 1));
                         }
                     }
-                } else if (colHoTenNum == 2 && colLuongNum == 9) {
-                    // Mẫu gộp Cấp bậc + Chức vụ (như Result_14 Phụ lục I.2): Họ tên là 2, Lương vẫn là 9
-                    colMap.put(0, rowMap.get(1)); // STT
-                    colMap.put(1, rowMap.get(2)); // Họ tên
-                    colMap.put(2, rowMap.get(3)); // Ngày sinh
-                    colMap.put(3, rowMap.get(4)); // Cấp bậc
-                    colMap.put(4, rowMap.get(4)); // Chức vụ (chung cột với cấp bậc)
-                    for (int k = 5; k <= 35; k++) {
-                        if (rowMap.containsKey(k)) {
-                            colMap.put(k, rowMap.get(k));
+                } else if (colHoTenNum == 1 && colLuongNum == 8) {
+                    // Mẫu không có cột STT (Họ tên: 1, Ngày sinh: 2... Lương: 8)
+                    colMap.put(2, rowMap.get(1)); // Họ tên
+                    colMap.put(3, rowMap.get(2)); // Ngày sinh
+                    colMap.put(4, rowMap.get(3)); // Cấp bậc
+                    colMap.put(5, rowMap.get(4)); // Chức vụ
+                    colMap.put(6, rowMap.get(5)); // Nhập ngũ
+                    colMap.put(7, rowMap.get(6)); // Sáp nhập
+                    colMap.put(8, rowMap.get(7)); // Thời điểm nghỉ
+                    colMap.put(9, rowMap.get(8)); // Lương
+                    for (int k = 10; k <= 35; k++) {
+                        if (rowMap.containsKey(k - 1)) {
+                            colMap.put(k, rowMap.get(k - 1));
                         }
                     }
                 } else {
-                    // Mẫu chuẩn (Họ tên là 1, Lương là 9, các cột tính toán khớp đúng số)
-                    colMap = rowMap;
+                    // Mẫu chuẩn mới 26.9.PHU_LUC_SUA.xlsx (STT: 1, Họ tên: 2, Ngày sinh: 3, Cấp bậc: 4, Chức vụ: 5, Nhập ngũ: 6, Sáp nhập: 7, Nghỉ: 8, Lương: 9, Cột 10..35 khớp 1-1)
+                    colMap.putAll(rowMap);
                 }
                 break;
             }

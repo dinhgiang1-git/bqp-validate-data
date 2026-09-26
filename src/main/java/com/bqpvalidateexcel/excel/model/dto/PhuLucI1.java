@@ -22,9 +22,7 @@ public class PhuLucI1 {
     private Date ngaySinh;
     private String capBac;
     private String chucVu;
-    private Date dateJoined;
     private Date nhapNgu;
-    private String kQDanhGiaCB;
     private Date thoiGianDonViSapNhapGiaiThe;
     private Date thoiDiemNghiHuuHuongTroCap;
     private BigDecimal luongThangHienThuongTheoThongTu;
@@ -51,7 +49,6 @@ public class PhuLucI1 {
     public boolean isBlank() {
         return (hoTen == null || hoTen.trim().isEmpty())
                 && (capBac == null || capBac.trim().isEmpty())
-                && (chucVu == null || chucVu.trim().isEmpty())
-                && (kQDanhGiaCB == null || kQDanhGiaCB.trim().isEmpty());
+                && (chucVu == null || chucVu.trim().isEmpty());
     }
 }

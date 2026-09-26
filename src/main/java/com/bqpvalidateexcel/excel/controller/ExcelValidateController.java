@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/excel")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class ExcelValidateController {
 
     private final ExcelValidationService validationService;
@@ -52,6 +54,21 @@ public class ExcelValidateController {
             return ResponseEntity.status(500)
                     .contentType(MediaType.TEXT_PLAIN)
                     .body(errMsg.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
+    @PostMapping(value = "/summary", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> getValidationSummary(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body("File không được rỗng");
+            }
+            ValidationSummaryDto summary = validationService.validateAndGetSummary(file.getInputStream());
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            log.error("Lỗi khi tổng hợp báo cáo thẩm định", e);
+            String errMsg = e.getMessage() != null && !e.getMessage().trim().isEmpty() ? e.getMessage() : e.toString();
+            return ResponseEntity.status(500).body("Lỗi: " + errMsg);
         }
     }
 }

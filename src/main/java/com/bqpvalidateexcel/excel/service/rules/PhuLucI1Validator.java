@@ -16,20 +16,8 @@ public class PhuLucI1Validator {
 
 
 
-        if (data.getKQDanhGiaCB() != null && !data.getKQDanhGiaCB().trim().isEmpty()) {
-            // Kiểm tra định dạng T,T,T (ví dụ)
-            String raw = data.getKQDanhGiaCB().replace('\u00A0', ' ').replaceAll("\\s+", "");
-            String[] parts = raw.split(",");
-            List<String> validGrades = Arrays.asList("XS", "T", "HT");
-            for (String part : parts) {
-                if (!validGrades.contains(part.trim().toUpperCase())) {
-                    errors.add("Kết quả đánh giá cán bộ không hợp lệ ('" + part.trim() + "'). Phải là XS, T, hoặc HT.");
-                }
-            }
-            if (parts.length > 3) {
-                errors.add("Kết quả đánh giá cán bộ chỉ được nhập tối đa 3 năm (ví dụ: T,T,T).");
-            }
-        }
+
+
 
         // Validate basic calculations or logic here if needed
         if (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() < 0) {

@@ -13,6 +13,13 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Parser cho Phụ lục I.3 (form mới 26.9.PHU_LUC_SUA.xlsx):
+ * C1=STT, C2=HọTên, C3=NgàySinh, C4=CấpBậc, C5=ChứcVụ,
+ * C6=NhậpNgũ, C7=SápNhập, C8=ThờiĐiểmNghỉHưu, C9=LươngTháng,
+ * C10=SốNămCôngTácĐóngBHXH, C11=SốNămNghỉSớm,
+ * C12=TrợCấpNghỉSớm, C13=BHXH20NămĐầu, C14=BHXHVượtMốc, C15=TổngCộng
+ */
 @Component
 public class ExcelRowParsePLI3 {
 
@@ -25,45 +32,30 @@ public class ExcelRowParsePLI3 {
             return Optional.empty();
         }
 
-        // Kiểm tra xem sheet có cột 'Đơn vị' ở cột index 5 hay không (chỉ khi không có colMap)
-        boolean hasDonVi = false;
-        if (colMap == null || colMap.isEmpty()) {
-            org.apache.poi.ss.usermodel.Row headerRow6 = row.getSheet().getRow(5);
-            if (headerRow6 != null) {
-                String h5 = ExcelParserUtils.getString(headerRow6, 5, formulaEvaluator).toLowerCase();
-                if (h5.contains("đơn vị") || h5.contains("don vi")) {
-                    hasDonVi = true;
-                }
-            }
-        }
-        int offset = hasDonVi ? 1 : 0;
-
-        int c1 = getCol(colMap, 1, 1);
-        int c2 = getCol(colMap, 2, 2);
-        int c3 = getCol(colMap, 3, 3);
-        int c4 = getCol(colMap, 4, 4);
-        int cDonVi = hasDonVi ? 5 : -1;
-        int c5 = getCol(colMap, 5, 5 + offset);
-        int c6 = getCol(colMap, 6, 6 + offset);
-        int c7 = getCol(colMap, 7, 7 + offset);
-        int c8 = getCol(colMap, 8, 8 + offset);
-        int c9 = getCol(colMap, 9, 9 + offset);
-        int c10 = getCol(colMap, 10, 10 + offset);
-        int c11 = getCol(colMap, 11, 11 + offset);
-        int c12 = getCol(colMap, 12, 12 + offset);
-        int c13 = getCol(colMap, 13, 13 + offset);
-        int c14 = getCol(colMap, 14, 14 + offset);
-        int c15 = getCol(colMap, 17, getCol(colMap, 15, 15 + offset));
+        int c1  = getCol(colMap, 1,  1);
+        int c2  = getCol(colMap, 2,  2);
+        int c3  = getCol(colMap, 3,  3);
+        int c4  = getCol(colMap, 4,  4);
+        int c5  = getCol(colMap, 5,  5);
+        int c6  = getCol(colMap, 6,  6);
+        int c7  = getCol(colMap, 7,  7);
+        int c8  = getCol(colMap, 8,  8);
+        int c9  = getCol(colMap, 9,  9);
+        int c10 = getCol(colMap, 10, 10);
+        int c11 = getCol(colMap, 11, 11);
+        int c12 = getCol(colMap, 12, 12);
+        int c13 = getCol(colMap, 13, 13);
+        int c14 = getCol(colMap, 14, 14);
+        // Cột tổng: ưu tiên colMap[15]; fallback c15
+        int c15 = getCol(colMap, 15, 15);
 
         PhuLucI3 data = PhuLucI3.builder()
                 .rowIndex(rowIndex)
-                .hoTen(ExcelParserUtils.getString(row, c1, formulaEvaluator))
-                .ngaySinh(ExcelParserUtils.getDate(row, c2, formulaEvaluator))
-                .capBac(ExcelParserUtils.getString(row, c3, formulaEvaluator))
-                .chucVu(ExcelParserUtils.getString(row, c4, formulaEvaluator))
-                .donVi(cDonVi != -1 ? ExcelParserUtils.getString(row, cDonVi, formulaEvaluator) : null)
-                .nhapNgu(ExcelParserUtils.getDate(row, c5, formulaEvaluator))
-                .kQDanhGiaCB(ExcelParserUtils.getString(row, c6, formulaEvaluator))
+                .hoTen(ExcelParserUtils.getString(row, c2, formulaEvaluator))
+                .ngaySinh(ExcelParserUtils.getDate(row, c3, formulaEvaluator))
+                .capBac(ExcelParserUtils.getString(row, c4, formulaEvaluator))
+                .chucVu(ExcelParserUtils.getString(row, c5, formulaEvaluator))
+                .nhapNgu(ExcelParserUtils.getDate(row, c6, formulaEvaluator))
                 .thoiGianDonViSapNhapGiaiThe(ExcelParserUtils.getDate(row, c7, formulaEvaluator))
                 .thoiDiemNghiHuuHuongTroCap(ExcelParserUtils.getDate(row, c8, formulaEvaluator))
                 .luongThangHienThuongTheoHuongDan(ExcelParserUtils.getBigDecimal(row, c9, formulaEvaluator))
