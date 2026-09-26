@@ -7,21 +7,23 @@ import java.io.FileInputStream;
 public class TestValidation {
     public static void main(String[] args) {
         try {
-            FileInputStream fis = new FileInputStream("d:\\WorkSpace\\spring-master\\spring-microservice\\bqp-validate-excel\\Result_4. Phụ lục TCCT - Copy (4).xlsx");
+            String filePath = "d:\\bqp\\26.9.PHU_LUC_SUA.xlsx";
+            FileInputStream fis = new FileInputStream(filePath);
             Workbook workbook = new XSSFWorkbook(fis);
             System.out.println("Workbook loaded. Sheets:");
             for (int i=0; i<workbook.getNumberOfSheets(); i++) {
-                System.out.println(workbook.getSheetName(i));
+                System.out.println(" - " + workbook.getSheetName(i));
             }
             
             ExcelValidationService service = new ExcelValidationService(
                 new com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI1(),
                 new com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI2(),
-                new com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI3()
+                new com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI3(),
+                new com.bqpvalidateexcel.excel.parser.ExcelRowParsePLI5()
             );
             
-            byte[] result = service.validateAndGenerateErrorReport(new FileInputStream("d:\\WorkSpace\\spring-master\\spring-microservice\\bqp-validate-excel\\Result_4. Phụ lục TCCT - Copy (4).xlsx"));
-            System.out.println("Validation completed. Result size: " + result.length);
+            byte[] result = service.validateAndGenerateErrorReport(new FileInputStream(filePath));
+            System.out.println("Validation completed successfully! Result size: " + result.length + " bytes");
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -21,7 +21,45 @@ public class BqpValidateExcelApplication {
 
     public static void main(String[] args) {
         System.setProperty("java.awt.headless", "false");
+        killPortIfOccupied(8080);
         SpringApplication.run(BqpValidateExcelApplication.class, args);
+    }
+
+    /**
+     * Tự động kiểm tra và tắt các tiến trình chiếm cổng trước khi khởi động ứng dụng
+     */
+    private static void killPortIfOccupied(int port) {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (!os.contains("win")) return;
+
+        try {
+            long currentPid = ProcessHandle.current().pid();
+            Process netstat = Runtime.getRuntime().exec(new String[]{"cmd", "/c", "netstat -ano -p tcp | findstr :" + port});
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(netstat.getInputStream()))) {
+                String line;
+                java.util.Set<String> killedPids = new java.util.HashSet<>();
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.contains("LISTENING")) {
+                        String[] parts = line.split("\\s+");
+                        if (parts.length > 0) {
+                            String pid = parts[parts.length - 1];
+                            if (pid.matches("\\d+") && !pid.equals("0") && Long.parseLong(pid) != currentPid && !killedPids.contains(pid)) {
+                                System.out.println("[TỰ ĐỘNG GIẢI PHÓNG CỔNG " + port + "] Phát hiện tiến trình PID " + pid + " đang chiếm cổng. Đang tắt tiến trình...");
+                                Runtime.getRuntime().exec(new String[]{"cmd", "/c", "taskkill /F /PID " + pid}).waitFor();
+                                killedPids.add(pid);
+                            }
+                        }
+                    }
+                }
+                if (!killedPids.isEmpty()) {
+                    System.out.println("[TỰ ĐỘNG GIẢI PHÓNG CỔNG " + port + "] Đã giải phóng xong " + killedPids.size() + " tiến trình chiếm cổng. Cổng " + port + " đã sẵn sàng!");
+                    Thread.sleep(800);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Cảnh báo khi kiểm tra/giải phóng cổng " + port + ": " + e.getMessage());
+        }
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -36,10 +74,8 @@ public class BqpValidateExcelApplication {
                 String url = "http://localhost:" + serverPort;
                 System.out.println();
                 System.out.println("==================================================================");
-                System.out.println("  PHẦN MỀM THẨM ĐỊNH DỮ LIỆU EXCEL CHÍNH SÁCH BỘ QUỐC PHÒNG");
-                System.out.println("  Ứng dụng đã khởi động thành công!");
-                System.out.println("  Đang tự động mở trình duyệt: " + url);
-                System.out.println("  (Nếu trình duyệt không tự mở, vui lòng truy cập đường dẫn trên)");
+                System.out.println("  BO QUOC PHONG - HE THONG THAM DINH DU LIEU CHINH SACH");
+                System.out.println("  Trang chu: " + url);
                 System.out.println("==================================================================");
                 System.out.println();
 
