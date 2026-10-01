@@ -16,6 +16,7 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 public class ExcelParserUtils {
@@ -33,48 +34,537 @@ public class ExcelParserUtils {
         return cleaned.trim().replaceAll("\\s+", " ");
     }
 
-    public static String getString(Row row, int col, FormulaEvaluator formulaEvaluator) {
+    public static CellReadResult<Object> readCellValue(Row row, int col, FormulaEvaluator evaluator) {
+        if (row == null) {
+            return CellReadResult.<Object>builder()
+                    .sheetName("")
+                    .cellAddress("")
+                    .formula(null)
+                    .value(null)
+                    .valueType("null")
+                    .status(CellStatus.BLANK)
+                    .valueSource("none")
+                    .rawText("")
+                    .build();
+        }
         Cell cell = row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-        if (cell == null) return "";
-        try {
-            return cleanString(dataFormatter.formatCellValue(cell, formulaEvaluator));
-        } catch (Exception e) {
-            if (cell.getCellType() == CellType.FORMULA) {
-                try {
-                    CellType cachedType = cell.getCachedFormulaResultType();
-                    if (cachedType == CellType.STRING) {
-                        return cleanString(cell.getStringCellValue());
-                    } else if (cachedType == CellType.NUMERIC) {
-                        return cleanString(dataFormatter.formatCellValue(cell));
-                    } else if (cachedType == CellType.BOOLEAN) {
-                        return String.valueOf(cell.getBooleanCellValue());
+        return readCellValue(cell, evaluator);
+    }
+
+    public static CellReadResult<Object> readCellValue(Cell cell, FormulaEvaluator evaluator) {
+        String sheetName = (cell != null && cell.getSheet() != null) ? cell.getSheet().getSheetName() : "";
+        String cellAddress = (cell != null && cell.getAddress() != null) ? cell.getAddress().formatAsString() : "";
+
+        if (cell == null) {
+            return CellReadResult.<Object>builder()
+                    .sheetName(sheetName)
+                    .cellAddress(cellAddress)
+                    .formula(null)
+                    .value(null)
+                    .valueType("null")
+                    .status(CellStatus.BLANK)
+                    .valueSource("none")
+                    .rawText("")
+                    .build();
+        }
+
+        CellType cellType = cell.getCellType();
+
+        // 1. Ô Blank
+        if (cellType == CellType.BLANK) {
+            return CellReadResult.<Object>builder()
+                    .sheetName(sheetName)
+                    .cellAddress(cellAddress)
+                    .formula(null)
+                    .value(null)
+                    .valueType("null")
+                    .status(CellStatus.BLANK)
+                    .valueSource("none")
+                    .rawText("")
+                    .build();
+        }
+
+        // 2. Ô Lỗi trực tiếp
+        if (cellType == CellType.ERROR) {
+            String errCode;
+            try {
+                errCode = org.apache.poi.ss.usermodel.FormulaError.forInt(cell.getErrorCellValue()).getString();
+            } catch (Exception ex) {
+                errCode = "ERROR";
+            }
+            return CellReadResult.<Object>builder()
+                    .sheetName(sheetName)
+                    .cellAddress(cellAddress)
+                    .formula(null)
+                    .value(null)
+                    .valueType("error")
+                    .status(CellStatus.FORMULA_ERROR)
+                    .valueSource("none")
+                    .errorCode(errCode)
+                    .rawText("[Lỗi ô: " + errCode + "]")
+                    .build();
+        }
+
+        // 3. Ô Công thức (FORMULA)
+        if (cellType == CellType.FORMULA) {
+            String formula = "";
+            try {
+                formula = cell.getCellFormula();
+            } catch (Exception ignored) {}
+
+            // A. Ưu tiên đọc kết quả đã lưu sẵn (cached result)
+            boolean hasCacheTag = true;
+            if (cell instanceof org.apache.poi.xssf.usermodel.XSSFCell) {
+                org.openxmlformats.schemas.spreadsheetml.x2006.main.CTCell ctCell = ((org.apache.poi.xssf.usermodel.XSSFCell) cell).getCTCell();
+                if (ctCell != null) {
+                    if (!ctCell.isSetV()) {
+                        hasCacheTag = false;
+                    } else if (ctCell.getV() == null || ctCell.getV().trim().isEmpty()) {
+                        // Thẻ <v> tồn tại trong XML nhưng rỗng -> chính là kết quả rỗng "" (FORMULA_EMPTY)
+                        return CellReadResult.<Object>builder()
+                                .sheetName(sheetName)
+                                .cellAddress(cellAddress)
+                                .formula(formula)
+                                .value("")
+                                .valueType("string")
+                                .status(CellStatus.FORMULA_EMPTY)
+                                .valueSource("cached")
+                                .rawText("")
+                                .build();
                     }
-                } catch (Exception ex) {
-                    // ignore
                 }
             }
+
+            CellType cachedType = null;
+            if (hasCacheTag) {
+                try {
+                    cachedType = cell.getCachedFormulaResultType();
+                } catch (Exception ignored) {}
+            }
+
+            if (cachedType == CellType.ERROR) {
+                String errCode;
+                try {
+                    errCode = org.apache.poi.ss.usermodel.FormulaError.forInt(cell.getErrorCellValue()).getString();
+                } catch (Exception ex) {
+                    errCode = "ERROR";
+                }
+                return CellReadResult.<Object>builder()
+                        .sheetName(sheetName)
+                        .cellAddress(cellAddress)
+                        .formula(formula)
+                        .value(null)
+                        .valueType("error")
+                        .status(CellStatus.FORMULA_ERROR)
+                        .valueSource("none")
+                        .errorCode(errCode)
+                        .rawText("[Lỗi ô: " + errCode + "]")
+                        .build();
+            }
+
+            if (cachedType == CellType.NUMERIC) {
+                boolean isDate = false;
+                try {
+                    isDate = DateUtil.isCellDateFormatted(cell);
+                } catch (Exception ignored) {}
+
+                if (isDate) {
+                    Date d = cell.getDateCellValue();
+                    return CellReadResult.<Object>builder()
+                            .sheetName(sheetName)
+                            .cellAddress(cellAddress)
+                            .formula(formula)
+                            .value(d)
+                            .valueType("date")
+                            .status(CellStatus.FORMULA_CACHED)
+                            .valueSource("cached")
+                            .rawText(d != null ? new SimpleDateFormat("dd/MM/yyyy").format(d) : "")
+                            .build();
+                } else {
+                    double num = cell.getNumericCellValue();
+                    BigDecimal bd = BigDecimal.valueOf(num);
+                    return CellReadResult.<Object>builder()
+                            .sheetName(sheetName)
+                            .cellAddress(cellAddress)
+                            .formula(formula)
+                            .value(bd)
+                            .valueType("number")
+                            .status(CellStatus.FORMULA_CACHED)
+                            .valueSource("cached")
+                            .rawText(dataFormatter.formatCellValue(cell))
+                            .build();
+                }
+            }
+
+            if (cachedType == CellType.STRING) {
+                String str = cleanString(cell.getStringCellValue());
+                if (str.isEmpty()) {
+                    return CellReadResult.<Object>builder()
+                            .sheetName(sheetName)
+                            .cellAddress(cellAddress)
+                            .formula(formula)
+                            .value("")
+                            .valueType("string")
+                            .status(CellStatus.FORMULA_EMPTY)
+                            .valueSource("cached")
+                            .rawText("")
+                            .build();
+                } else {
+                    return CellReadResult.<Object>builder()
+                            .sheetName(sheetName)
+                            .cellAddress(cellAddress)
+                            .formula(formula)
+                            .value(str)
+                            .valueType("string")
+                            .status(CellStatus.FORMULA_CACHED)
+                            .valueSource("cached")
+                            .rawText(str)
+                            .build();
+                }
+            }
+
+            if (cachedType == CellType.BOOLEAN) {
+                boolean b = cell.getBooleanCellValue();
+                return CellReadResult.<Object>builder()
+                        .sheetName(sheetName)
+                        .cellAddress(cellAddress)
+                        .formula(formula)
+                        .value(b)
+                        .valueType("boolean")
+                        .status(CellStatus.FORMULA_CACHED)
+                        .valueSource("cached")
+                        .rawText(String.valueOf(b))
+                        .build();
+            }
+
+            // B. Nếu thiếu cache hoặc cachedType == CellType.BLANK, thử dùng evaluator tính lại
+            if (evaluator != null) {
+                try {
+                    org.apache.poi.ss.usermodel.CellValue cv = evaluator.evaluate(cell);
+                    if (cv != null) {
+                        CellType evalType = cv.getCellType();
+                        if (evalType == CellType.NUMERIC) {
+                            boolean isDate = false;
+                            try {
+                                isDate = DateUtil.isCellDateFormatted(cell);
+                            } catch (Exception ignored) {}
+
+                            if (isDate) {
+                                Date d = DateUtil.getJavaDate(cv.getNumberValue());
+                                return CellReadResult.<Object>builder()
+                                        .sheetName(sheetName)
+                                        .cellAddress(cellAddress)
+                                        .formula(formula)
+                                        .value(d)
+                                        .valueType("date")
+                                        .status(CellStatus.FORMULA_EVALUATED)
+                                        .valueSource("evaluated")
+                                        .rawText(d != null ? new SimpleDateFormat("dd/MM/yyyy").format(d) : "")
+                                        .build();
+                            } else {
+                                BigDecimal bd = BigDecimal.valueOf(cv.getNumberValue());
+                                return CellReadResult.<Object>builder()
+                                        .sheetName(sheetName)
+                                        .cellAddress(cellAddress)
+                                        .formula(formula)
+                                        .value(bd)
+                                        .valueType("number")
+                                        .status(CellStatus.FORMULA_EVALUATED)
+                                        .valueSource("evaluated")
+                                        .rawText(String.valueOf(cv.getNumberValue()))
+                                        .build();
+                            }
+                        } else if (evalType == CellType.STRING) {
+                            String str = cleanString(cv.getStringValue());
+                            if (str.isEmpty()) {
+                                return CellReadResult.<Object>builder()
+                                        .sheetName(sheetName)
+                                        .cellAddress(cellAddress)
+                                        .formula(formula)
+                                        .value("")
+                                        .valueType("string")
+                                        .status(CellStatus.FORMULA_EMPTY)
+                                        .valueSource("evaluated")
+                                        .rawText("")
+                                        .build();
+                            } else {
+                                return CellReadResult.<Object>builder()
+                                        .sheetName(sheetName)
+                                        .cellAddress(cellAddress)
+                                        .formula(formula)
+                                        .value(str)
+                                        .valueType("string")
+                                        .status(CellStatus.FORMULA_EVALUATED)
+                                        .valueSource("evaluated")
+                                        .rawText(str)
+                                        .build();
+                            }
+                        } else if (evalType == CellType.BOOLEAN) {
+                            boolean b = cv.getBooleanValue();
+                            return CellReadResult.<Object>builder()
+                                    .sheetName(sheetName)
+                                    .cellAddress(cellAddress)
+                                    .formula(formula)
+                                    .value(b)
+                                    .valueType("boolean")
+                                    .status(CellStatus.FORMULA_EVALUATED)
+                                    .valueSource("evaluated")
+                                    .rawText(String.valueOf(b))
+                                    .build();
+                        } else if (evalType == CellType.ERROR) {
+                            String errCode;
+                            try {
+                                errCode = org.apache.poi.ss.usermodel.FormulaError.forInt(cv.getErrorValue()).getString();
+                            } catch (Exception ex) {
+                                errCode = "ERROR";
+                            }
+                            return CellReadResult.<Object>builder()
+                                    .sheetName(sheetName)
+                                    .cellAddress(cellAddress)
+                                    .formula(formula)
+                                    .value(null)
+                                    .valueType("error")
+                                    .status(CellStatus.FORMULA_ERROR)
+                                    .valueSource("none")
+                                    .errorCode(errCode)
+                                    .rawText("[Lỗi ô: " + errCode + "]")
+                                    .build();
+                        } else if (evalType == CellType.BLANK) {
+                            return CellReadResult.<Object>builder()
+                                    .sheetName(sheetName)
+                                    .cellAddress(cellAddress)
+                                    .formula(formula)
+                                    .value("")
+                                    .valueType("string")
+                                    .status(CellStatus.FORMULA_EMPTY)
+                                    .valueSource("evaluated")
+                                    .rawText("")
+                                    .build();
+                        }
+                    }
+                } catch (Exception evalEx) {
+                    // Khi evaluator ném lỗi do công thức không hỗ trợ
+                }
+            }
+
+            // C. Không tính được và không có cache -> FORMULA_NO_RESULT
+            return CellReadResult.<Object>builder()
+                    .sheetName(sheetName)
+                    .cellAddress(cellAddress)
+                    .formula(formula)
+                    .value(null)
+                    .valueType("null")
+                    .status(CellStatus.FORMULA_NO_RESULT)
+                    .valueSource("none")
+                    .rawText("[Lỗi ô: Chưa tính kết quả]")
+                    .build();
+        }
+
+        // 4. Literal NUMERIC
+        if (cellType == CellType.NUMERIC) {
+            boolean isDate = false;
+            try {
+                isDate = DateUtil.isCellDateFormatted(cell);
+            } catch (Exception ignored) {}
+
+            if (isDate) {
+                Date d = cell.getDateCellValue();
+                return CellReadResult.<Object>builder()
+                        .sheetName(sheetName)
+                        .cellAddress(cellAddress)
+                        .formula(null)
+                        .value(d)
+                        .valueType("date")
+                        .status(CellStatus.VALUE)
+                        .valueSource("literal")
+                        .rawText(d != null ? new SimpleDateFormat("dd/MM/yyyy").format(d) : "")
+                        .build();
+            } else {
+                double num = cell.getNumericCellValue();
+                BigDecimal bd = BigDecimal.valueOf(num);
+                return CellReadResult.<Object>builder()
+                        .sheetName(sheetName)
+                        .cellAddress(cellAddress)
+                        .formula(null)
+                        .value(bd)
+                        .valueType("number")
+                        .status(CellStatus.VALUE)
+                        .valueSource("literal")
+                        .rawText(dataFormatter.formatCellValue(cell))
+                        .build();
+            }
+        }
+
+        // 5. Literal STRING
+        if (cellType == CellType.STRING) {
+            String str = cleanString(cell.getStringCellValue());
+            if (str.isEmpty()) {
+                return CellReadResult.<Object>builder()
+                        .sheetName(sheetName)
+                        .cellAddress(cellAddress)
+                        .formula(null)
+                        .value("")
+                        .valueType("string")
+                        .status(CellStatus.BLANK)
+                        .valueSource("none")
+                        .rawText("")
+                        .build();
+            } else {
+                return CellReadResult.<Object>builder()
+                        .sheetName(sheetName)
+                        .cellAddress(cellAddress)
+                        .formula(null)
+                        .value(str)
+                        .valueType("string")
+                        .status(CellStatus.VALUE)
+                        .valueSource("literal")
+                        .rawText(str)
+                        .build();
+            }
+        }
+
+        // 6. Literal BOOLEAN
+        if (cellType == CellType.BOOLEAN) {
+            boolean b = cell.getBooleanCellValue();
+            return CellReadResult.<Object>builder()
+                    .sheetName(sheetName)
+                    .cellAddress(cellAddress)
+                    .formula(null)
+                    .value(b)
+                    .valueType("boolean")
+                    .status(CellStatus.VALUE)
+                    .valueSource("literal")
+                    .rawText(String.valueOf(b))
+                    .build();
+        }
+
+        // Mặc định
+        return CellReadResult.<Object>builder()
+                .sheetName(sheetName)
+                .cellAddress(cellAddress)
+                .formula(null)
+                .value(null)
+                .valueType("null")
+                .status(CellStatus.BLANK)
+                .valueSource("none")
+                .rawText("")
+                .build();
+    }
+
+    public static FormulaReadReport generateFormulaReport(org.apache.poi.ss.usermodel.Workbook wb, FormulaEvaluator evaluator) {
+        FormulaReadReport report = FormulaReadReport.builder()
+                .sheetFormulaCounts(new java.util.HashMap<>())
+                .issues(new java.util.ArrayList<>())
+                .build();
+        if (wb == null) return report;
+
+        for (int s = 0; s < wb.getNumberOfSheets(); s++) {
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.getSheetAt(s);
+            int sheetFormulas = 0;
+            for (Row row : sheet) {
+                if (row == null) continue;
+                for (Cell cell : row) {
+                    if (cell == null || cell.getCellType() != CellType.FORMULA) continue;
+                    sheetFormulas++;
+                    report.setTotalFormulas(report.getTotalFormulas() + 1);
+
+                    CellReadResult<Object> res = readCellValue(cell, evaluator);
+                    switch (res.getStatus()) {
+                        case FORMULA_CACHED:
+                            report.setCachedFormulas(report.getCachedFormulas() + 1);
+                            break;
+                        case FORMULA_EVALUATED:
+                            report.setEvaluatedFormulas(report.getEvaluatedFormulas() + 1);
+                            break;
+                        case FORMULA_EMPTY:
+                            report.setEmptyFormulas(report.getEmptyFormulas() + 1);
+                            break;
+                        case FORMULA_NO_RESULT:
+                            report.setNoResultFormulas(report.getNoResultFormulas() + 1);
+                            report.getIssues().add(FormulaReadReport.FormulaIssue.builder()
+                                    .sheet(sheet.getSheetName())
+                                    .address(res.getCellAddress())
+                                    .formula(res.getFormula())
+                                    .status(res.getStatus())
+                                    .errorCode("NO_RESULT")
+                                    .row(cell.getRowIndex() + 1)
+                                    .col(cell.getColumnIndex() + 1)
+                                    .build());
+                            break;
+                        case FORMULA_ERROR:
+                            report.setErrorFormulas(report.getErrorFormulas() + 1);
+                            report.getIssues().add(FormulaReadReport.FormulaIssue.builder()
+                                    .sheet(sheet.getSheetName())
+                                    .address(res.getCellAddress())
+                                    .formula(res.getFormula())
+                                    .status(res.getStatus())
+                                    .errorCode(res.getErrorCode())
+                                    .row(cell.getRowIndex() + 1)
+                                    .col(cell.getColumnIndex() + 1)
+                                    .build());
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            if (sheetFormulas > 0) {
+                report.getSheetFormulaCounts().put(sheet.getSheetName(), sheetFormulas);
+            }
+        }
+        return report;
+    }
+
+    public static String getString(Row row, int col, FormulaEvaluator formulaEvaluator) {
+        CellReadResult<Object> res = readCellValue(row, col, formulaEvaluator);
+        if (res.getStatus() == CellStatus.BLANK || res.getStatus() == CellStatus.FORMULA_EMPTY) {
             return "";
         }
+        if (res.getStatus() == CellStatus.FORMULA_ERROR) {
+            return "[Lỗi ô: " + (res.getErrorCode() != null ? res.getErrorCode() : "ERROR") + "]";
+        }
+        if (res.getStatus() == CellStatus.FORMULA_NO_RESULT) {
+            return "[Lỗi ô: Chưa tính kết quả]";
+        }
+
+        if (res.getValue() != null) {
+            if (res.getValue() instanceof Date) {
+                return new SimpleDateFormat("dd/MM/yyyy").format((Date) res.getValue());
+            }
+            if (res.getValue() instanceof BigDecimal) {
+                BigDecimal bd = (BigDecimal) res.getValue();
+                return bd.stripTrailingZeros().toPlainString();
+            }
+            return cleanString(String.valueOf(res.getValue()));
+        }
+
+        Cell cell = (row != null) ? row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL) : null;
+        if (cell != null && cell.getCellType() != CellType.FORMULA) {
+            try {
+                return cleanString(dataFormatter.formatCellValue(cell));
+            } catch (Exception ignored) {}
+        }
+        return cleanString(res.getRawText());
     }
 
     public static BigDecimal getBigDecimal(Row row, int col, FormulaEvaluator formulaEvaluator) {
-        Cell cell = row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-        if (cell == null) return null;
-
-        if (cell.getCellType() == CellType.NUMERIC) {
-            return BigDecimal.valueOf(cell.getNumericCellValue());
+        CellReadResult<Object> res = readCellValue(row, col, formulaEvaluator);
+        if (res.getStatus() == CellStatus.BLANK || res.getStatus() == CellStatus.FORMULA_EMPTY) {
+            return null;
         }
-        
-        if (cell.getCellType() == CellType.FORMULA) {
-            try {
-                if (cell.getCachedFormulaResultType() == CellType.NUMERIC) {
-                    return BigDecimal.valueOf(cell.getNumericCellValue());
-                }
-            } catch (Exception e) {}
+        if (res.getStatus() == CellStatus.FORMULA_ERROR || res.getStatus() == CellStatus.FORMULA_NO_RESULT) {
+            return null;
+        }
+
+        if (res.getValue() instanceof BigDecimal) {
+            return (BigDecimal) res.getValue();
+        }
+        if (res.getValue() instanceof Number) {
+            return BigDecimal.valueOf(((Number) res.getValue()).doubleValue());
         }
 
         String val = getString(row, col, formulaEvaluator);
-        if (val == null || val.trim().isEmpty() || val.trim().equals("-")) return null;
+        if (val == null || val.trim().isEmpty() || val.trim().equals("-") || val.startsWith("[Lỗi")) return null;
         
         val = val.trim().replaceAll("\\s+", "");
 
@@ -138,50 +628,100 @@ public class ExcelParserUtils {
     }
 
     public static Date getDate(Row row, int col, FormulaEvaluator formulaEvaluator) {
-        Cell cell = row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-        if (cell == null) return null;
+        CellReadResult<Object> res = readCellValue(row, col, formulaEvaluator);
+        if (res.getStatus() == CellStatus.BLANK || res.getStatus() == CellStatus.FORMULA_EMPTY
+                || res.getStatus() == CellStatus.FORMULA_ERROR || res.getStatus() == CellStatus.FORMULA_NO_RESULT) {
+            return null;
+        }
 
         Date resultDate = null;
-
-        if (cell.getCellType() == CellType.NUMERIC) {
-            if (DateUtil.isCellDateFormatted(cell)) {
-                resultDate = cell.getDateCellValue();
-            }
+        if (res.getValue() instanceof Date) {
+            resultDate = (Date) res.getValue();
         }
 
         if (resultDate == null) {
             String val = getString(row, col, formulaEvaluator);
-            if (val == null || val.trim().isEmpty()) return null;
+            if (val == null || val.trim().isEmpty() || val.startsWith("[Lỗi")) return null;
             val = val.trim();
 
+            // 1. Quét tìm tất cả các mốc ngày trong chuỗi (xử lý chuỗi nhiều dòng hoặc có tiền tố như TD: mm/yyyy, NN: mm/yyyy, BH: mm/yyyy, SQDB: mm/yyyy...)
+            java.util.List<Date> dateMatches = new java.util.ArrayList<>();
+            // Pattern 1: dd/MM/yyyy hoặc MM/yyyy (năm 4 chữ số)
+            java.util.regex.Matcher m4 = java.util.regex.Pattern.compile("(?:(\\d{1,2})[\\/\\.-])?(\\d{1,2})[\\/\\.-](\\d{4})").matcher(val);
+            while (m4.find()) {
+                try {
+                    int d = m4.group(1) != null ? Integer.parseInt(m4.group(1)) : 1;
+                    int m = Integer.parseInt(m4.group(2));
+                    int y = Integer.parseInt(m4.group(3));
+                    if (y > 2045) y -= 100;
+                    if (m >= 1 && m <= 12 && y >= 1940 && y <= 2045) {
+                        Calendar cal = Calendar.getInstance();
+                        cal.set(y, m - 1, Math.min(d, 28), 0, 0, 0);
+                        cal.set(Calendar.MILLISECOND, 0);
+                        dateMatches.add(cal.getTime());
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // Pattern 2: Năm 2 chữ số (ví dụ "12/88", "7/96", "02/69") nếu không tìm thấy năm 4 chữ số
+            if (dateMatches.isEmpty()) {
+                java.util.regex.Matcher m2List = java.util.regex.Pattern.compile("(?:(\\d{1,2})[\\/\\.-])?(\\d{1,2})[\\/\\.-](\\d{2})\\b").matcher(val);
+                while (m2List.find()) {
+                    try {
+                        int d = m2List.group(1) != null ? Integer.parseInt(m2List.group(1)) : 1;
+                        int m = Integer.parseInt(m2List.group(2));
+                        int yy = Integer.parseInt(m2List.group(3));
+                        int y = (yy <= 45) ? (2000 + yy) : (1900 + yy);
+                        if (m >= 1 && m <= 12) {
+                            Calendar cal = Calendar.getInstance();
+                            cal.set(y, m - 1, Math.min(d, 28), 0, 0, 0);
+                            cal.set(Calendar.MILLISECOND, 0);
+                            dateMatches.add(cal.getTime());
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            if (!dateMatches.isEmpty()) {
+                // Sắp xếp tăng dần để lấy mốc bắt đầu sớm nhất (thời gian bắt đầu đóng BHXH/tuyển dụng)
+                dateMatches.sort(Date::compareTo);
+                resultDate = dateMatches.get(0);
+            }
+
             // Nếu có nhiều mốc ngày phân tách bằng dấu chấm phẩy (ví dụ: "12/88; 7/96") -> lấy mốc đầu tiên
-            if (val.contains(";")) {
+            if (resultDate == null && val.contains(";")) {
                 val = val.split(";")[0].trim();
             }
 
             // Xử lý các chuỗi có chữ "Thg" ví dụ "Thg7-25" -> "7-25"
-            if (val.toLowerCase().startsWith("thg")) {
+            if (resultDate == null && val.toLowerCase().startsWith("thg")) {
                 val = val.replaceAll("(?i)thg\\s*", "");
             }
 
             // Xử lý gõ nhầm chữ O/o thay vì số 0 (ví dụ "O2/1974" -> "02/1974")
-            val = val.replaceAll("^[oO](\\d)", "0$1").replaceAll("[/-][oO](\\d)", "/0$1");
+            if (resultDate == null) {
+                val = val.replaceAll("^[oO](\\d)", "0$1").replaceAll("[/-][oO](\\d)", "/0$1");
+            }
 
             // Xóa khoảng trắng thừa quanh dấu gạch chéo hoặc gạch ngang
-            val = val.replaceAll("\\s*/\\s*", "/").replaceAll("\\s*-\\s*", "-").replaceAll("\\s+", "");
+            if (resultDate == null) {
+                val = val.replaceAll("\\s*/\\s*", "/").replaceAll("\\s*-\\s*", "-").replaceAll("\\s+", "");
+            }
 
             // Chuẩn hóa năm 2 chữ số dạng dd/MM/yy hoặc MM/yy (ví dụ: "02/69" -> "02/1969", "3/25" -> "3/2025", "8/86" -> "8/1986")
-            java.util.regex.Matcher m3 = java.util.regex.Pattern.compile("^(\\d{1,2})([/-])(\\d{1,2})[/-](\\d{2})$").matcher(val);
-            if (m3.find()) {
-                int yy = Integer.parseInt(m3.group(4));
-                int fullY = (yy <= 45) ? (2000 + yy) : (1900 + yy);
-                val = m3.group(1) + m3.group(2) + m3.group(3) + m3.group(2) + fullY;
-            } else {
-                java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("^(\\d{1,2})([/-])(\\d{2})$").matcher(val);
-                if (m2.find()) {
-                    int yy = Integer.parseInt(m2.group(3));
+            if (resultDate == null) {
+                java.util.regex.Matcher m3 = java.util.regex.Pattern.compile("^(\\d{1,2})([/-])(\\d{1,2})[/-](\\d{2})$").matcher(val);
+                if (m3.find()) {
+                    int yy = Integer.parseInt(m3.group(4));
                     int fullY = (yy <= 45) ? (2000 + yy) : (1900 + yy);
-                    val = m2.group(1) + m2.group(2) + fullY;
+                    val = m3.group(1) + m3.group(2) + m3.group(3) + m3.group(2) + fullY;
+                } else {
+                    java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("^(\\d{1,2})([/-])(\\d{2})$").matcher(val);
+                    if (m2.find()) {
+                        int yy = Integer.parseInt(m2.group(3));
+                        int fullY = (yy <= 45) ? (2000 + yy) : (1900 + yy);
+                        val = m2.group(1) + m2.group(2) + fullY;
+                    }
                 }
             }
 

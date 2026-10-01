@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 @Builder
 public class PLI1ExpectedResult {
     private int cot10;
+    private int rawCot10;
     private BigDecimal cot11;
     private BigDecimal cot12;
     private BigDecimal cot13;

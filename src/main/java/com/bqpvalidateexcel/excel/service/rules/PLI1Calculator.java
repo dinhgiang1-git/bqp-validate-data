@@ -29,15 +29,15 @@ public class PLI1Calculator {
         }
         if (rawCot10 < 0) rawCot10 = 0;
 
-        // Quy tắc: Nếu cột > 60 mà giá trị của cột họ ghi = 60 thì vẫn cho là đúng. Bỏ logic so sánh +- 24 tháng ở Sheet I.1
+        // Quy tắc: Nếu cột >= 60 mà giá trị của cột họ ghi = 60 thì vẫn cho là đúng. Bỏ logic so sánh +- 24 tháng ở Sheet I.1
         Integer actualC10 = data.getSoThangNghiHuuTruocTuoiTheoThongTu();
-        boolean isCapped60 = (rawCot10 > 60 && actualC10 != null && actualC10 == 60);
+        boolean isCapped60 = (rawCot10 >= 60 && actualC10 != null && actualC10 == 60);
         boolean c10Valid = (actualC10 != null && (actualC10 == rawCot10 || isCapped60));
         int cot10 = isCapped60 ? 60 : rawCot10;
 
         BigDecimal rawExp11 = calcNamLamTron(rawCot10);
         BigDecimal actualC11 = data.getSoNamNghiHuuTruocTuoiTheoThongTu();
-        boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawExp11) || (rawCot10 > 60 && isEqual(actualC11, BigDecimal.valueOf(5)))));
+        boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawExp11) || (rawCot10 >= 60 && isEqual(actualC11, BigDecimal.valueOf(5)))));
         BigDecimal exp11 = c11Valid ? actualC11 : rawExp11;
 
         int monthsC12 = calcThang(data.getThoiDiemNghiHuuHuongTroCap(), data.getNhapNgu());
@@ -96,17 +96,21 @@ public class PLI1Calculator {
         BigDecimal val18_21 = BigDecimal.ZERO;
         BigDecimal val19_22 = BigDecimal.ZERO;
         
-        BigDecimal exp12ForMoney = (actualC12 != null && actualC12.compareTo(BigDecimal.ZERO) > 0) ? actualC12 : rawExp12;
+        BigDecimal exp12ForMoney = exp12;
 
         if (nghiTruoc172025) {
-            if (exp12ForMoney.compareTo(BigDecimal.valueOf(20)) > 0) {
+            if (exp12ForMoney.compareTo(BigDecimal.valueOf(20)) >= 0) {
                 val18_21 = luong.multiply(BigDecimal.valueOf(5));
-                val19_22 = luong.multiply(BigDecimal.valueOf(0.5)).multiply(exp12ForMoney.subtract(BigDecimal.valueOf(20)));
+                if (exp12ForMoney.compareTo(BigDecimal.valueOf(20)) > 0) {
+                    val19_22 = luong.multiply(BigDecimal.valueOf(0.5)).multiply(exp12ForMoney.subtract(BigDecimal.valueOf(20)));
+                }
             }
         } else {
-            if (exp12ForMoney.compareTo(BigDecimal.valueOf(15)) > 0) {
+            if (exp12ForMoney.compareTo(BigDecimal.valueOf(15)) >= 0) {
                 val18_21 = luong.multiply(BigDecimal.valueOf(4));
-                val19_22 = luong.multiply(BigDecimal.valueOf(0.5)).multiply(exp12ForMoney.subtract(BigDecimal.valueOf(15)));
+                if (exp12ForMoney.compareTo(BigDecimal.valueOf(15)) > 0) {
+                    val19_22 = luong.multiply(BigDecimal.valueOf(0.5)).multiply(exp12ForMoney.subtract(BigDecimal.valueOf(15)));
+                }
             }
         }
 
@@ -126,6 +130,7 @@ public class PLI1Calculator {
 
         return PLI1ExpectedResult.builder()
                 .cot10(cot10)
+                .rawCot10(rawCot10)
                 .cot11(exp11)
                 .cot12(exp12)
                 .cot13(expectedCol13)

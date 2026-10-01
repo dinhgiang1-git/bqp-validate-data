@@ -9,6 +9,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class BqpValidateExcelApplicationTests {
 
+    private static final String TEST_STORAGE_DIR = System.getProperty("java.io.tmpdir") + "/bqp-test-app-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void configureProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        registry.add("bqp.storage.base-dir", () -> TEST_STORAGE_DIR);
+        registry.add("bqp.lock.enabled", () -> "false");
+    }
+
     @Test
     void contextLoads() {
     }
@@ -282,20 +290,37 @@ class BqpValidateExcelApplicationTests {
         org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.ZERO.compareTo(res1.getCot17()));
         org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(603_000_000).compareTo(res1.getCot18()));
 
-        // Trường hợp 2: Tuổi đời <= 2 năm -> không được hưởng
+        // Trường hợp 2: Tuổi đời < 2 năm (< 24 tháng) -> không được hưởng
         com.bqpvalidateexcel.excel.model.dto.PhuLucI2 data2 = com.bqpvalidateexcel.excel.model.dto.PhuLucI2.builder()
                 .ngaySinh(sdf.parse("01/01/1973"))
                 .capBac("Thiếu tá") // trần 52 -> 01/01/2025
                 .nhapNgu(sdf.parse("01/01/2005"))
                 .thoiGianDonViSapNhapGiaiThe(sdf.parse("01/06/2023"))
-                .thoiDiemThoiViecHuongTroCap(sdf.parse("01/01/2024")) // còn 12 tháng <= 24 tháng
+                .thoiDiemThoiViecHuongTroCap(sdf.parse("01/01/2024")) // còn 12 tháng < 24 tháng
                 .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(10_000_000))
                 .build();
 
         com.bqpvalidateexcel.excel.model.expected.PLI2ExpectedResult res2 = 
             com.bqpvalidateexcel.excel.service.rules.PLI2Calculator.calculateExpected(data2);
         org.junit.jupiter.api.Assertions.assertFalse(res2.isOver2Years());
+        org.junit.jupiter.api.Assertions.assertFalse(res2.isEligibleByAge());
         org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.ZERO.compareTo(res2.getCot18()));
+
+        // Trường hợp 3: Tuổi đời còn đúng 24 tháng (đủ 2 năm theo Khoản 1 Điều 10 TT 19) -> ĐƯỢC HƯỞNG
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI2 data3 = com.bqpvalidateexcel.excel.model.dto.PhuLucI2.builder()
+                .ngaySinh(sdf.parse("01/01/1974"))
+                .capBac("Thiếu tá") // trần 52 -> 01/01/2026
+                .nhapNgu(sdf.parse("01/01/2010"))
+                .thoiGianDonViSapNhapGiaiThe(sdf.parse("01/06/2023"))
+                .thoiDiemThoiViecHuongTroCap(sdf.parse("01/01/2024")) // còn đúng 24 tháng
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(10_000_000))
+                .build();
+        com.bqpvalidateexcel.excel.model.expected.PLI2ExpectedResult res3 =
+            com.bqpvalidateexcel.excel.service.rules.PLI2Calculator.calculateExpected(data3);
+        org.junit.jupiter.api.Assertions.assertTrue(res3.isEligibleByAge());
+        org.junit.jupiter.api.Assertions.assertTrue(res3.isOver2Years());
+        org.junit.jupiter.api.Assertions.assertEquals(24, res3.getCot10());
+        org.junit.jupiter.api.Assertions.assertTrue(res3.getCot18().compareTo(java.math.BigDecimal.ZERO) > 0);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -363,12 +388,28 @@ class BqpValidateExcelApplicationTests {
         com.bqpvalidateexcel.excel.model.expected.PLI3ExpectedResult res1 =
                 com.bqpvalidateexcel.excel.service.rules.PLI3Calculator.calculateExpected(data1);
 
-        org.junit.jupiter.api.Assertions.assertEquals(java.math.BigDecimal.valueOf(40.5), res1.getCot10());
-        org.junit.jupiter.api.Assertions.assertEquals(java.math.BigDecimal.valueOf(1.0), res1.getCot11());
-        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(153_129_600).compareTo(res1.getCot12()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(40.5).compareTo(res1.getCot10()));
+        // Đúng 6 tháng nghỉ sớm (02/2026 -> 08/2026): tính là 0.5 năm theo quy định (<= 6 tháng = 0.5 năm)
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(0.5).compareTo(res1.getCot11()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(76_564_800).compareTo(res1.getCot12()));
         org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(153_129_600).compareTo(res1.getCot13()));
         org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(390_480_480).compareTo(res1.getCot14()));
-        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(696_739_680).compareTo(res1.getCot15()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(620_174_880).compareTo(res1.getCot15()));
+
+        // TH1b: Biên 7 tháng nghỉ sớm (01/2026 -> 08/2026): làm tròn lên 1.0 năm (> 6 tháng = 1.0 năm)
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI3 data1b = com.bqpvalidateexcel.excel.model.dto.PhuLucI3.builder()
+                .ngaySinh(sdf.parse("30/08/1968"))
+                .capBac("Đại tá")
+                .chucVu("Trưởng phòng Pháo binh")
+                .nhapNgu(sdf.parse("01/09/1985"))
+                .thoiDiemNghiHuuHuongTroCap(sdf.parse("01/01/2026"))
+                .luongThangHienThuongTheoHuongDan(java.math.BigDecimal.valueOf(30_625_920))
+                .soNamHuongTroCapTheoHuongDan(java.math.BigDecimal.valueOf(1.0))
+                .build();
+        com.bqpvalidateexcel.excel.model.expected.PLI3ExpectedResult res1b =
+                com.bqpvalidateexcel.excel.service.rules.PLI3Calculator.calculateExpected(data1b);
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(1.0).compareTo(res1b.getCot11()));
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(153_129_600).compareTo(res1b.getCot12()));
 
         // TH2: Nghỉ hưu trước 01/07/2025 (ví dụ 01/01/2025, mốc 20 năm)
         com.bqpvalidateexcel.excel.model.dto.PhuLucI3 data2 = com.bqpvalidateexcel.excel.model.dto.PhuLucI3.builder()
@@ -734,6 +775,108 @@ class BqpValidateExcelApplicationTests {
 
         java.math.BigDecimal totalExpected = resTuan.getCot13().add(resTuan.getCot17()).add(resTuan.getCot18()).add(resTuan.getCot19());
         org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(1_738_893_780L).compareTo(totalExpected));
+    }
+
+    @Test
+    void testZeroToleranceForDiff2Or24() throws Exception {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+
+        // Sheet I.2: Đối tượng có thời gian công tác 240 tháng = 20 năm (C11 chuẩn = 20.0), số tháng thôi việc khống chế 60 tháng (C10 chuẩn = 60).
+        // Nếu trong file nhập C10 = 36 (lệch 24) hoặc C11 = 18.0 (lệch 2.0 hoặc 24 tháng), phần mềm KHÔNG dung sai,
+        // C10 và C11 kỳ vọng (expected) vẫn phải giữ nguyên chuẩn luật là 60 và 20.0.
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI2 dataI2 = com.bqpvalidateexcel.excel.model.dto.PhuLucI2.builder()
+                .hoTen("Test Không Dung Sai I.2")
+                .ngaySinh(sdf.parse("01/01/1975"))
+                .capBac("4//") // Đại tá -> trần 58 -> nghỉ hưu năm 2033
+                .nhapNgu(sdf.parse("01/01/2005"))
+                .thoiDiemThoiViecHuongTroCap(sdf.parse("01/01/2025")) // 20 năm công tác = 240 tháng -> C11 chuẩn = 20.0
+                .soThangThoiViecTheoThongTu(36) // Thực tế file nhập lệch 24 so với chuẩn 60
+                .soNamHuongTroCapTheoThongTu(java.math.BigDecimal.valueOf(18.0)) // Thực tế file nhập lệch 2 so với chuẩn 20.0
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(20_000_000))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI2ExpectedResult resI2 =
+                com.bqpvalidateexcel.excel.service.rules.PLI2Calculator.calculateExpected(dataI2);
+
+        org.junit.jupiter.api.Assertions.assertEquals(60, resI2.getCot10(), "C10 kỳ vọng phải là chuẩn luật (60), không chấp nhận dung sai lệch 24");
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(20).compareTo(resI2.getCot11()), "C11 kỳ vọng phải là chuẩn luật (20.0), không chấp nhận dung sai lệch 2.0");
+
+        // Sheet I.3:
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI3 dataI3 = com.bqpvalidateexcel.excel.model.dto.PhuLucI3.builder()
+                .hoTen("Test Không Dung Sai I.3")
+                .ngaySinh(sdf.parse("01/01/1970"))
+                .capBac("4//") // Đại tá -> trần 58 -> hạn tuổi 01/2028
+                .nhapNgu(sdf.parse("01/01/1990"))
+                .thoiDiemNghiHuuHuongTroCap(sdf.parse("01/01/2025")) // còn 36 tháng = 3 năm nghỉ sớm -> C11 chuẩn = 3.0; C10 (BHXH 35 năm) = 35.0
+                .soThangThoiViecTheoHuongDan(java.math.BigDecimal.valueOf(33.0)) // File nhập lệch 2 so với 35.0
+                .soNamHuongTroCapTheoHuongDan(java.math.BigDecimal.valueOf(1.0)) // File nhập lệch 2 so với 3.0
+                .luongThangHienThuongTheoHuongDan(java.math.BigDecimal.valueOf(20_000_000))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI3ExpectedResult resI3 =
+                com.bqpvalidateexcel.excel.service.rules.PLI3Calculator.calculateExpected(dataI3);
+
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(35).compareTo(resI3.getCot10()), "C10 kỳ vọng phải là chuẩn luật (35.0), không bị ảnh hưởng bởi actual");
+        org.junit.jupiter.api.Assertions.assertEquals(0, java.math.BigDecimal.valueOf(3.0).compareTo(resI3.getCot11()), "C11 kỳ vọng phải là chuẩn luật (3.0), không bị ảnh hưởng bởi actual");
+    }
+
+    @Test
+    void testCot10Over60TreatedAsCorrect() throws Exception {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+
+        // 1. Phụ lục I.1: Dữ liệu thẩm định >= 60, file nhập = 60 -> coi như đúng (60)
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI1 dataI1 = com.bqpvalidateexcel.excel.model.dto.PhuLucI1.builder()
+                .ngaySinh(sdf.parse("01/10/1972"))
+                .capBac("Đại tá") // trần 58 -> hưu 10/2030
+                .chucVu("Chính trị viên")
+                .nhapNgu(sdf.parse("01/03/1990"))
+                .thoiDiemNghiHuuHuongTroCap(sdf.parse("01/10/2025")) // 60 tháng trước tuổi (tính 2 đầu = 61 >= 60)
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(30_000_000))
+                .soThangNghiHuuTruocTuoiTheoThongTu(60)
+                .soNamNghiHuuTruocTuoiTheoThongTu(java.math.BigDecimal.valueOf(5))
+                .soNamCongTacDongBHXHTheoThongTu(java.math.BigDecimal.valueOf(35))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI1ExpectedResult resI1 =
+                com.bqpvalidateexcel.excel.service.rules.PLI1Calculator.calculateExpected(dataI1);
+
+        org.junit.jupiter.api.Assertions.assertTrue(resI1.getRawCot10() >= 60, "Dữ liệu thẩm định I.1 phải >= 60");
+        org.junit.jupiter.api.Assertions.assertEquals(60, resI1.getCot10(), "I.1 thẩm định >= 60 nhưng file nhập 60 phải được coi là đúng (60)");
+
+        // 2. Phụ lục I.2: Dữ liệu thẩm định >= 60, file nhập = 60 -> coi như đúng (60)
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI2 dataI2 = com.bqpvalidateexcel.excel.model.dto.PhuLucI2.builder()
+                .hoTen("Test I.2 Cột 10 Capped 60")
+                .ngaySinh(sdf.parse("01/01/1975"))
+                .capBac("Đại tá") // trần 58 -> hạn tuổi 01/2033
+                .nhapNgu(sdf.parse("01/01/2005"))
+                .thoiDiemThoiViecHuongTroCap(sdf.parse("01/01/2025")) // rawThangConLai = 96 tháng (>= 60)
+                .soThangThoiViecTheoThongTu(60)
+                .soNamHuongTroCapTheoThongTu(java.math.BigDecimal.valueOf(20.0))
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(20_000_000))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI2ExpectedResult resI2 =
+                com.bqpvalidateexcel.excel.service.rules.PLI2Calculator.calculateExpected(dataI2);
+
+        org.junit.jupiter.api.Assertions.assertTrue(resI2.getThangConLai() >= 60 || resI2.getRawCot10() >= 60, "Dữ liệu thẩm định I.2 phải >= 60");
+        org.junit.jupiter.api.Assertions.assertEquals(60, resI2.getCot10(), "I.2 thẩm định >= 60 nhưng file nhập 60 phải được coi là đúng (60)");
+
+        // 3. Phụ lục I.2: Dữ liệu thẩm định < 60 mà file nhập = 60 -> KHÔNG coi là đúng (vẫn giữ số tháng chuẩn < 60)
+        com.bqpvalidateexcel.excel.model.dto.PhuLucI2 dataI2Under = com.bqpvalidateexcel.excel.model.dto.PhuLucI2.builder()
+                .hoTen("Test I.2 Cột 10 Dưới 60")
+                .ngaySinh(sdf.parse("01/01/1975"))
+                .capBac("Trung tá") // trần 54 -> hạn tuổi 01/2029
+                .nhapNgu(sdf.parse("01/01/2005"))
+                .thoiDiemThoiViecHuongTroCap(sdf.parse("01/01/2027")) // rawThangConLai = 24 tháng (< 60)
+                .soThangThoiViecTheoThongTu(60) // File cố tình nhập 60
+                .soNamHuongTroCapTheoThongTu(java.math.BigDecimal.valueOf(22.0))
+                .luongThangHienThuongTheoThongTu(java.math.BigDecimal.valueOf(20_000_000))
+                .build();
+
+        com.bqpvalidateexcel.excel.model.expected.PLI2ExpectedResult resI2Under =
+                com.bqpvalidateexcel.excel.service.rules.PLI2Calculator.calculateExpected(dataI2Under);
+
+        org.junit.jupiter.api.Assertions.assertEquals(24, resI2Under.getCot10(), "I.2 thẩm định < 60 (24 tháng) thì không chấp nhận ghi 60, kỳ vọng vẫn là 24");
     }
 }
 
