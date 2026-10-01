@@ -68,13 +68,19 @@ async function testBtlHaNoiImportAndExport() {
     console.log('  I.1 errors:', matchingI1.errorDetails);
     console.log('  I.1 comparisons:', matchingI1.comparisons);
     
+    const money = v => numeric(String(v).replace(/\s*đ$/, ''));
+    const compC22 = recI5.comparisons.find(c => c.col === 'Cột 22');
+    assert.equal(money(compC22.expected), 29203200, 'I.5 C22 must be recalculated as SUM(C13:C21) = 29,203,200');
+
     const compC9 = matchingI1.comparisons && matchingI1.comparisons.find(c => c.col === 'Cột 9');
     assert.ok(compC9, 'Matching I.1 record must have a Cột 9 comparison');
     assert.equal(compC9.hasErr, true, 'Cột 9 comparison must mark error due to salary discrepancy');
-    assert.equal(numeric(compC9.actual), 30859920, 'C9 actual value must be reported 30,859,920');
-    assert.equal(numeric(compC9.expected), 22000000, 'C9 expected value must be I.5 salary 22,000,000');
-    
-    console.log('✅ PASS: Discrepancy 8,859,920 detected between I.5 C22 (22,000,000) and I.1 C9 (30,859,920)!');
+    assert.equal(money(compC9.actual), 30859920, 'C9 actual value must be reported 30,859,920');
+    assert.equal(money(compC9.expected), 29203200, 'C9 expected value must be recalculated I.5 C22 29,203,200 (not declared 22,000,000)');
+    assert.equal(numeric(matchingI1.rawCols[9]), 30859920, 'Raw C9 must keep the declared value');
+    assert.equal(matchingI1.luongThang, 29203200, 'I.1 allowances must be recalculated from the standard I.5 salary');
+
+    console.log('✅ PASS: I.1 C9 (30,859,920) checked against recalculated I.5 C22 (29,203,200); raw C9 preserved!');
 
     // Test Export & Check Notes
     console.log('--- 3. Testing Exported Workbook for Absence of Notes/Comments ---');

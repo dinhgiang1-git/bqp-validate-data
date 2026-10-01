@@ -3981,14 +3981,14 @@ window.ValidationUI = {
 
             if (candidates.length === 1) {
                 const matchedI5 = candidates[0];
-                let i5Salary = 0;
-                if (matchedI5.rawCols && matchedI5.rawCols[22] != null) {
-                    i5Salary = parseAmt(matchedI5.rawCols[22]);
-                } else if (matchedI5.tongTienThucTe != null) {
-                    i5Salary = parseAmt(matchedI5.tongTienThucTe);
-                } else if (matchedI5.luongThang != null) {
-                    i5Salary = parseAmt(matchedI5.luongThang);
-                }
+                const fmt = BQPValidation.fmtMoney;
+                const i5Declared = (matchedI5.rawCols && matchedI5.rawCols[22] != null)
+                    ? parseAmt(matchedI5.rawCols[22])
+                    : parseAmt(matchedI5.tongTienThucTe);
+                // Chuẩn là C22 do BQP tính lại từ I.5; chỉ dùng số kê khai khi I.5 chưa đủ dữ liệu để tính
+                const i5Recalc = (matchedI5.valRes && !matchedI5.valRes.isIncomplete && matchedI5.tongTienTinhLai > 0)
+                    ? Math.round(matchedI5.tongTienTinhLai) : 0;
+                const i5Salary = i5Recalc || i5Declared;
 
                 let c9Declared = 0;
                 if (rec.rawCols && rec.rawCols[9] != null) {
@@ -3999,44 +3999,37 @@ window.ValidationUI = {
                     c9Declared = parseAmt(rec.luongThang);
                 }
 
-                if (i5Salary > 0 && c9Declared > 0 && Math.abs(c9Declared - i5Salary) > 0) {
-                    rec.hasErrors = true;
-                    if (!rec.errorDetails) rec.errorDetails = [];
-                    const errStr = `Lệch tiền lương tháng C9 (${BQPValidation.fmtMoney(c9Declared)} đ) so với Phụ lục I.5 C22 (${BQPValidation.fmtMoney(i5Salary)} đ)`;
-                    if (!rec.errorDetails.includes(errStr)) {
-                        rec.errorDetails.push(errStr);
-                    }
+                if (i5Salary > 0 && c9Declared > 0 && Math.round(c9Declared) !== Math.round(i5Salary)) {
+                    const i5Desc = i5Recalc
+                        ? `Cột 22 Phụ lục I.5 chuẩn tính lại ${fmt(i5Recalc)} đ` + (Math.round(i5Declared) !== i5Recalc ? ` (file I.5 ghi ${fmt(i5Declared)} đ)` : '')
+                        : `Cột 22 Phụ lục I.5 ${fmt(i5Declared)} đ`;
+                    const errStr = `Cột 9 (Lương tháng hiện hưởng): File ghi ${fmt(c9Declared)} đ, khác ${i5Desc}.`;
+                    const compC9 = {
+                        col: 'Cột 9',
+                        title: 'Lương tháng hiện hưởng (đối chiếu Cột 22 Phụ lục I.5)',
+                        actual: fmt(c9Declared) + ' đ',
+                        expected: fmt(i5Salary) + ' đ',
+                        diff: `${i5Salary - c9Declared > 0 ? '+' : ''}${fmt(i5Salary - c9Declared)} đ`,
+                        hasErr: true,
+                        formula: i5Recalc ? 'Cột 22 Phụ lục I.5 = SUM(Cột 13 : Cột 21) theo chuẩn BQP' : 'Cột 22 Phụ lục I.5 (kê khai)'
+                    };
 
-                    if (!rec.comparisons) rec.comparisons = [];
-                    let compC9 = rec.comparisons.find(c => c.col === 'Cột 9');
-                    if (!compC9) {
-                        compC9 = {
-                            col: 'Cột 9',
-                            title: 'Tiền lương tháng làm căn cứ',
-                            actual: String(c9Declared),
-                            expected: String(i5Salary),
-                            hasErr: true,
-                            formula: `C9 kê khai ${BQPValidation.fmtMoney(c9Declared)} ≠ C22 I.5 ${BQPValidation.fmtMoney(i5Salary)}`
-                        };
-                        rec.comparisons.push(compC9);
-                    } else {
-                        compC9.actual = String(c9Declared);
-                        compC9.expected = String(i5Salary);
-                        compC9.hasErr = true;
-                    }
-
+                    // Tính lại I.1/I.2/I.3 theo lương chuẩn; giữ nguyên rawCols[9] là số kê khai gốc
                     rec.luongThang = i5Salary;
                     rec.monthlySalary = i5Salary;
-                    if (rec.rawCols) rec.rawCols[9] = i5Salary;
-                    let reVal = BQPValidation.ValidationService.validateRow(rec.sheet, rec);
+                    const reVal = BQPValidation.ValidationService.validateRow(rec.sheet, rec);
                     if (reVal && reVal.exp) {
                         rec.valRes = reVal;
+                        rec.expected = reVal.exp;
                         rec.tongTienTinhLai = reVal.expectedTotal;
                         rec.diff = reVal.expectedTotal - (rec.tongTienThucTe || 0);
-                        const c9Comp = rec.comparisons.filter(c => c.col === 'Cột 9');
-                        const otherComps = (reVal.comparisons || []).filter(c => c.col !== 'Cột 9');
-                        rec.comparisons = [...c9Comp, ...otherComps];
+                        rec.comparisons = [compC9, ...(reVal.comparisons || []).filter(c => c.col !== 'Cột 9')];
+                        rec.errorDetails = [errStr, ...(reVal.errorDetails || [])];
+                    } else {
+                        rec.comparisons = [compC9, ...(rec.comparisons || []).filter(c => c.col !== 'Cột 9')];
+                        rec.errorDetails = [errStr, ...(rec.errorDetails || [])];
                     }
+                    rec.hasErrors = true;
                 }
             } else if (candidates.length > 1) {
                 rec.errorDetails = rec.errorDetails || [];
@@ -4472,6 +4465,8 @@ window.ValidationUI = {
                                     }
                                 }
                             }
+                            // Giữ số kê khai C9 gốc: luongThang có thể bị thay bằng lương chuẩn từ Phụ lục I.5
+                            if (!cellErrors[9] && luongThang > 0) rawCols[9] = luongThang;
 
                             rowData = {
                                 id: 'val_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
@@ -5307,6 +5302,9 @@ window.ValidationUI = {
         let enlistDate = BQPValidation.formatDate(r.nhapNgu || (r.input && r.input.nhapNgu));
         let mergerDate = BQPValidation.formatDate(r.sapNhap || (r.input && r.input.sapNhap) || (r.input && r.input.thoiGianDonViSapNhapGiaiThe));
         let retireDate = BQPValidation.formatDate(r.thoiDiemNghi || (r.input && r.input.thoiDiemNghi));
+        // Danh sách RAW lưu lương kê khai C9, không lấy lương chuẩn đã đối chiếu với Phụ lục I.5
+        const declaredC9 = (r.sheet !== 'I.5' && r.rawCols && typeof r.rawCols[9] === 'number') ? r.rawCols[9] : null;
+        const rawSalary = Math.round(Number(declaredC9 != null ? declaredC9 : (r.luongThang || (r.input && r.input.luongThang) || 0)));
 
         return {
             id: 'excel_' + (r.id ? String(r.id).replace(/^val_/, '') : (Date.now() + '_' + Math.random().toString(36).substr(2, 6))),
@@ -5337,8 +5335,8 @@ window.ValidationUI = {
             retirementDate: retireDate,
             thoiDiemNghi: retireDate,
             demobilizationDate: retireDate,
-            monthlySalary: Math.round(Number(r.luongThang || (r.input && r.input.luongThang) || 0)),
-            luongThang: Math.round(Number(r.luongThang || (r.input && r.input.luongThang) || 0)),
+            monthlySalary: rawSalary,
+            luongThang: rawSalary,
             actualTotal: roundAct,
             tongTienThucTe: roundAct,
             calculatedTotal: 0,
@@ -5356,7 +5354,7 @@ window.ValidationUI = {
                 nhapNgu: enlistDate,
                 sapNhap: mergerDate,
                 thoiDiemNghi: retireDate,
-                luongThang: r.luongThang || 0
+                luongThang: rawSalary
             }),
             input: r.input || {
                 hoTen: r.hoTen,
@@ -5366,7 +5364,7 @@ window.ValidationUI = {
                 nhapNgu: enlistDate,
                 sapNhap: mergerDate,
                 thoiDiemNghi: retireDate,
-                luongThang: r.luongThang || 0
+                luongThang: rawSalary
             },
             resultJson: JSON.stringify({ tongTien: roundAct }),
             result: { tongTien: roundAct },
