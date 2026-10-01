@@ -27,21 +27,9 @@ public class PLI3Calculator {
             int rMonth = calRetire.get(java.util.Calendar.MONTH);
             
             int diffMonths = (rYear * 12 + rMonth) - (nYear * 12 + nMonth);
-            if (diffMonths >= 0) {
-                int years = diffMonths / 12;
-                int months = diffMonths % 12;
-                if (months == 0) {
-                    rawCot10 = BigDecimal.valueOf(years);
-                } else if (months <= 6) {
-                    rawCot10 = BigDecimal.valueOf(years).add(BigDecimal.valueOf(0.5));
-                } else {
-                    rawCot10 = BigDecimal.valueOf(years).add(BigDecimal.valueOf(1.0));
-                }
-            }
+            rawCot10 = calcNamLamTron(diffMonths);
         }
-        BigDecimal actualC10 = data.getSoThangThoiViecTheoHuongDan();
-        boolean c10Valid = (actualC10 != null && (isEqual(actualC10, rawCot10) || Math.abs(actualC10.doubleValue() - rawCot10.doubleValue()) == 2.0 || Math.abs(actualC10.doubleValue() - rawCot10.doubleValue()) == 24.0));
-        BigDecimal cot10 = c10Valid ? actualC10 : rawCot10;
+        BigDecimal cot10 = rawCot10;
         
         // Tính Cột 11: (cột 2 + trần) - cột 8
         if (tran > 0 && data.getNgaySinh() != null && data.getThoiDiemNghiHuuHuongTroCap() != null) {
@@ -56,21 +44,9 @@ public class PLI3Calculator {
             int retireMonth = calRetire.get(java.util.Calendar.MONTH);
             
             int diffMonths11 = (expectedRetireYear * 12 + expectedRetireMonth) - (retireYear * 12 + retireMonth);
-            if (diffMonths11 >= 0) {
-                int years11 = diffMonths11 / 12;
-                int months11 = diffMonths11 % 12;
-                if (months11 == 0) {
-                    rawCot11 = BigDecimal.valueOf(years11);
-                } else if (months11 < 6) {
-                    rawCot11 = BigDecimal.valueOf(years11).add(BigDecimal.valueOf(0.5));
-                } else {
-                    rawCot11 = BigDecimal.valueOf(years11).add(BigDecimal.valueOf(1.0));
-                }
-            }
+            rawCot11 = calcNamLamTron(diffMonths11);
         }
-        BigDecimal actualC11 = data.getSoNamHuongTroCapTheoHuongDan();
-        boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawCot11) || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 2.0 || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 24.0));
-        BigDecimal cot11 = c11Valid ? actualC11 : rawCot11;
+        BigDecimal cot11 = rawCot11;
         
         BigDecimal luong = data.getLuongThangHienThuongTheoHuongDan() != null ? data.getLuongThangHienThuongTheoHuongDan() : BigDecimal.ZERO;
         
@@ -111,6 +87,15 @@ public class PLI3Calculator {
         return MilitaryRankHelper.getTran(capBac, chucVu);
     }
 
+
+    private static BigDecimal calcNamLamTron(int thang) {
+        if (thang <= 0) return BigDecimal.ZERO;
+        int years = thang / 12;
+        int rem = thang % 12;
+        if (rem == 0) return BigDecimal.valueOf(years);
+        if (rem <= 6) return BigDecimal.valueOf(years).add(BigDecimal.valueOf(0.5));
+        return BigDecimal.valueOf(years).add(BigDecimal.ONE);
+    }
 
     private static boolean isEqual(BigDecimal a, BigDecimal b) {
         if (a == null && b == null) return true;

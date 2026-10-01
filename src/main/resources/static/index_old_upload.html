@@ -205,10 +205,58 @@
             margin: 0 auto;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        /* Toast Notification */
+        #bqp_toast_container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 100020;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 440px;
+            width: calc(100% - 48px);
+            pointer-events: none;
         }
+        @media (max-width: 640px) {
+            #bqp_toast_container {
+                top: auto;
+                bottom: 20px;
+                right: 16px;
+                left: 16px;
+                width: auto;
+                max-width: none;
+            }
+        }
+        .bqp-toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 14px 16px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+            border-left: 5px solid #1e3a8a;
+            color: #0f172a;
+            font-size: 13.5px;
+            line-height: 1.5;
+            pointer-events: auto;
+            opacity: 0;
+            transform: translateX(30px);
+            transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+            word-break: break-word;
+        }
+        .bqp-toast.bqp-toast-visible { opacity: 1; transform: translateX(0); }
+        .bqp-toast.bqp-toast-removing { opacity: 0; transform: scale(0.92) translateY(-10px); transition: all 0.25s; }
+        .bqp-toast-icon { flex-shrink: 0; width: 22px; height: 22px; margin-top: 1px; }
+        .bqp-toast-content { flex: 1; min-width: 0; color: #1e293b; }
+        .bqp-toast-close { flex-shrink: 0; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 18px; line-height: 1; }
+        .bqp-toast-success { border-left-color: #10B981; }
+        .bqp-toast-success .bqp-toast-icon { color: #10B981; }
+        .bqp-toast-error { border-left-color: #EF4444; }
+        .bqp-toast-error .bqp-toast-icon { color: #EF4444; }
+        .bqp-toast-info { border-left-color: #4F46E5; }
+        .bqp-toast-info .bqp-toast-icon { color: #4F46E5; }
     </style>
 </head>
 <body>
@@ -370,9 +418,47 @@
             }
         });
 
+        const ToastManager = {
+            _container: null,
+            _init() {
+                if (!this._container) {
+                    this._container = document.getElementById('bqp_toast_container');
+                    if (!this._container) {
+                        this._container = document.createElement('div');
+                        this._container.id = 'bqp_toast_container';
+                        document.body.appendChild(this._container);
+                    }
+                }
+            },
+            show(message, type = 'info') {
+                this._init();
+                const toast = document.createElement('div');
+                toast.className = `bqp-toast bqp-toast-${type}`;
+                toast.innerHTML = `
+                    <div class="bqp-toast-content">${message}</div>
+                    <button class="bqp-toast-close" type="button">&times;</button>
+                `;
+                toast.querySelector('.bqp-toast-close').onclick = () => {
+                    toast.classList.remove('bqp-toast-visible');
+                    setTimeout(() => toast.remove(), 260);
+                };
+                this._container.appendChild(toast);
+                setTimeout(() => toast.classList.add('bqp-toast-visible'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('bqp-toast-visible');
+                    setTimeout(() => toast.remove(), 260);
+                }, type === 'error' ? 8000 : (type === 'warning' ? 6000 : 4000));
+            },
+            success(msg) { this.show(msg, 'success'); },
+            error(msg) { this.show(msg, 'error'); }
+        };
+
         function showStatus(message, type) {
             statusMessage.textContent = message;
             statusMessage.className = `status-message status-${type}`;
+            if (type === 'success') ToastManager.success(message);
+            else if (type === 'error') ToastManager.error(message);
+            else ToastManager.show(message, 'info');
         }
     </script>
 </body>

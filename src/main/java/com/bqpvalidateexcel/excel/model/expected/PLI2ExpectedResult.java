@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 @Builder
 public class PLI2ExpectedResult {
     private Integer cot10; // Số tháng thôi việc: Cột 8 - Cột 5
+    private int rawCot10;
     private BigDecimal cot11; // Số năm hưởng trợ cấp: Cột 10 / 12 làm tròn (<=0.5 -> +0.5, >0.5 -> +1)
     private BigDecimal cot12; // Cột 10 * 0.8 * Cột 9 (Nghỉ trong 12 tháng đầu & tuổi đời > 2 năm)
     private BigDecimal cot13; // Cột 11 * 1.5 * Cột 9 (Nghỉ trong 12 tháng đầu & tuổi đời > 2 năm)
@@ -19,6 +20,9 @@ public class PLI2ExpectedResult {
 
     private boolean isWithin12Months;
     private boolean isOver2Years;
+    private boolean isEligibleByAge;
     private int distance8_7;
     private int thangConLai;
+    private int monthsCongTac;
+    private int maxThangThoiViec;
 }

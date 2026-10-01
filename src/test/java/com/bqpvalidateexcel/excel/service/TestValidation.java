@@ -7,7 +7,10 @@ import java.io.FileInputStream;
 public class TestValidation {
     public static void main(String[] args) {
         try {
-            String filePath = "d:\\bqp\\26.9.PHU_LUC_SUA.xlsx";
+            String filePath = "d:\\bqp\\PHU LUC KEM THEO HUONG DAN CUA CUC TAI CHINH.xlsx";
+            if (!new java.io.File(filePath).exists()) {
+                filePath = "d:\\bqp\\26.9.PHU_LUC_SUA.xlsx";
+            }
             FileInputStream fis = new FileInputStream(filePath);
             Workbook workbook = new XSSFWorkbook(fis);
             System.out.println("Workbook loaded. Sheets:");

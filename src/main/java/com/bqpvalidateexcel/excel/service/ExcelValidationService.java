@@ -82,6 +82,30 @@ public class ExcelValidationService {
                 .replace("đ", "d");
     }
 
+    private boolean isRomanNumeral(String str) {
+        if (str == null) return false;
+        String s = str.trim();
+        return s.matches("(?i)^[IVXLCDM]+$");
+    }
+
+    private boolean isLetterCategory(String str) {
+        if (str == null) return false;
+        String s = str.trim();
+        return s.matches("(?i)^[A-D]$");
+    }
+
+    private boolean isEllipsis(String stt, String text) {
+        String s = stt != null ? stt.trim() : "";
+        String t = text != null ? text.trim() : "";
+        return s.matches("^[.…]+$") || (t.matches("^[.…]+$") && (s.isEmpty() || s.matches("^[.…]+$")));
+    }
+
+    private boolean isPolicyRow(String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase().replaceAll("\\s+", "");
+        return t.contains("nghịđịnhsố178") || t.contains("nghịđịnhsố177") || t.contains("nghịđịnhsố67") || t.startsWith("nghỉtheonghịđịnh");
+    }
+
 
     private final ExcelRowParsePLI1 parsePLI1;
     private final ExcelRowParsePLI2 parsePLI2;
@@ -154,8 +178,13 @@ public class ExcelValidationService {
             Font boldRedFont = workbook.createFont();
             boldRedFont.setColor(IndexedColors.RED.getIndex());
             boldRedFont.setBold(true);
-            java.util.Map<Short, CellStyle> redStyleCache = new java.util.HashMap<>();
+            FormulaReadReport formulaReport = ExcelParserUtils.generateFormulaReport(workbook, evaluator);
+            if (formulaReport.getNoResultFormulas() > 0 || formulaReport.getErrorFormulas() > 0) {
+                log.warn("[ExcelValidationService] Phát hiện {} ô công thức chưa tính và {} ô lỗi công thức",
+                        formulaReport.getNoResultFormulas(), formulaReport.getErrorFormulas());
+            }
 
+            java.util.Map<Short, CellStyle> redStyleCache = new java.util.HashMap<>();
             List<ErrorRecordDto> errorRecords = new ArrayList<>();
 
             Sheet sheetPLI1 = findSheetByType(workbook, SheetType.PL_I1);
@@ -219,6 +248,7 @@ public class ExcelValidationService {
                     .totalDifference(totalDiff)
                     .totalDifferenceWords(com.bqpvalidateexcel.excel.util.VietnameseNumberToWords.toWords(totalDiff))
                     .errorRecords(errorRecords)
+                    .formulaReport(formulaReport)
                     .build();
         }
     }
@@ -387,11 +417,87 @@ public class ExcelValidationService {
             }
 
             PhuLucI1 data = optData.get();
-            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty() || data.getNgaySinh() == null) {
+            String hoTen = data.getHoTen() != null ? data.getHoTen().trim() : "";
+            String lowerHoTen = hoTen.toLowerCase().replaceAll("\\s+", "");
+            if (lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng")) {
+                break;
+            }
+
+            int col1 = colMap.getOrDefault(1, 1);
+            String sttStr = ExcelParserUtils.getString(row, col1, evaluator).trim();
+            Integer sttNum = null;
+            try { sttNum = Integer.parseInt(sttStr); } catch (Exception ignored) {}
+            boolean hasStt = sttNum != null && sttNum > 0;
+            boolean hasRank = data.getCapBac() != null && !data.getCapBac().trim().isEmpty();
+            boolean hasDob = data.getNgaySinh() != null;
+            boolean hasSalary = data.getLuongThangHienThuongTheoThongTu() != null && data.getLuongThangHienThuongTheoThongTu().compareTo(BigDecimal.ZERO) > 0;
+
+            boolean isRoman = isRomanNumeral(sttStr);
+            boolean isUnitMarker = isRoman || sttStr.equalsIgnoreCase("ĐV") || sttStr.equalsIgnoreCase("DV");
+            boolean isLetterCat = isLetterCategory(sttStr);
+            boolean isPol = isPolicyRow(hoTen) || isPolicyRow(sttStr);
+            boolean isEllip = isEllipsis(sttStr, hoTen);
+
+            boolean isCategory = lowerHoTen.startsWith("sĩquan") || lowerHoTen.startsWith("syquan") || lowerHoTen.startsWith("qncn")
+                    || lowerHoTen.startsWith("quânnhân") || lowerHoTen.startsWith("năm20") || lowerHoTen.startsWith("i.")
+                    || lowerHoTen.startsWith("ii.") || lowerHoTen.startsWith("iii.") || isLetterCat;
+            boolean isTotal = lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng");
+            boolean isNote = lowerHoTen.startsWith("ghichú") || lowerHoTen.startsWith("hướngdẫn");
+
+            if (isEllip || isPol) {
                 rowNum++;
                 continue;
             }
+
+            if (!hasStt && !hasRank && !hasDob && !hasSalary && (isCategory || isTotal || isNote || isUnitMarker || hoTen.isEmpty())) {
+                rowNum++;
+                continue;
+            }
+
             List<String> errorDetails = new ArrayList<>();
+            boolean hasInputErrors = false;
+
+            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty()) {
+                addError(row, colMap.getOrDefault(4, 4), "Cột 4: Thiếu cấp bậc quân nhân (không xác định được trần tuổi để thẩm định).", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getNgaySinh() == null) {
+                addError(row, colMap.getOrDefault(3, 3), "Cột 3: Không đọc được dữ liệu Ngày sinh (ô bị lỗi hoặc sai định dạng).", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getThoiDiemNghiHuuHuongTroCap() == null) {
+                addError(row, colMap.getOrDefault(8, 8), "Cột 8: Không đọc được thời điểm nghỉ hưởng chế độ.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getLuongThangHienThuongTheoThongTu() == null || data.getLuongThangHienThuongTheoThongTu().compareTo(BigDecimal.ZERO) <= 0) {
+                addError(row, colMap.getOrDefault(9, 9), "Cột 9: Tiền lương tháng bị trống hoặc không hợp lệ.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+
+            if (hasInputErrors) {
+                writeNotesToRow(row, errorDetails, noteCol, redFont);
+                BigDecimal actTotal = data.getTongCongSoTienTheoNghiDinhSo178() != null ? data.getTongCongSoTienTheoNghiDinhSo178() : BigDecimal.ZERO;
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.1")
+                        .donVi((currentUnit != null && !currentUnit.isEmpty()) ? currentUnit : "BQP")
+                        .hoTen(!hoTen.isEmpty() ? hoTen : "[Thiếu họ tên]")
+                        .ngaySinh(data.getNgaySinh())
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
+                        .nghiHuuND178(true)
+                        .saiThoiGianDuocHuong(true)
+                        .saiTongSoTien(true)
+                        .tongTienThucTe(actTotal)
+                        .tongTienTinhLai(BigDecimal.ZERO)
+                        .tongTienChenhLech(actTotal.negate())
+                        .noiDungSoTienSai("Lỗi dữ liệu đầu vào: Không đủ dữ liệu hợp lệ để tính toán")
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
+                rowNum++;
+                continue;
+            }
             
             // USE THE CALCULATOR!
             PLI1ExpectedResult exp = PLI1Calculator.calculateExpected(data);
@@ -419,7 +525,9 @@ public class ExcelValidationService {
             String retStr = "";
             if (data.getThoiDiemNghiHuuHuongTroCap() != null) retStr = new java.text.SimpleDateFormat("MM/yyyy").format(data.getThoiDiemNghiHuuHuongTroCap());
             
-            if (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10()) {
+            int rawCot10 = exp.getRawCot10() > 0 ? exp.getRawCot10() : exp.getCot10();
+            boolean isC10Correct60 = (rawCot10 >= 60 && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() == 60);
+            if (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && !isC10Correct60 && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10()) {
                 addError(row, colMap.getOrDefault(10, 10), "Cột 10. Kết quả đúng: " + exp.getCot10() + ". Công thức: (Tháng sinh + Trần) - Cột 8 (VD: Khoảng cách từ " + retStr + " đến Mốc hưu chuẩn của " + bdStr + ")", errorDetails, redFont, redStyleCache);
             }
             if (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && !isEqualTime(exp.getCot11(), data.getSoNamNghiHuuTruocTuoiTheoThongTu())) {
@@ -533,7 +641,7 @@ public class ExcelValidationService {
             writeNotesToRow(row, errorDetails, noteCol, redFont);
 
             if (!errorDetails.isEmpty()) {
-                boolean c10Err = (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10());
+                boolean c10Err = (data.getSoThangNghiHuuTruocTuoiTheoThongTu() != null && !isC10Correct60 && data.getSoThangNghiHuuTruocTuoiTheoThongTu() != exp.getCot10());
                 boolean c11Err = (data.getSoNamNghiHuuTruocTuoiTheoThongTu() != null && !isEqualTime(exp.getCot11(), data.getSoNamNghiHuuTruocTuoiTheoThongTu()));
                 boolean c12Err = (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqualTime(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu()));
                 boolean saiThoiGian = c10Err || c11Err || c12Err;
@@ -618,15 +726,84 @@ public class ExcelValidationService {
             if (!optData.isPresent()) continue;
 
             PhuLucI2 data = optData.get();
-            if (data.getHoTen() == null || data.getHoTen().trim().isEmpty()) continue;
-            if (data.getHoTen().toLowerCase().replaceAll("\\s+", "").contains("cộng")) break;
+            String hoTen = data.getHoTen() != null ? data.getHoTen().trim() : "";
+            String lowerHoTen = hoTen.toLowerCase().replaceAll("\\s+", "");
+            if (lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng")) break;
 
-            // Bỏ qua các dòng tiêu đề đơn vị cấp dưới, phân loại (không phải cá nhân)
-            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty() || data.getNgaySinh() == null) {
+            int col1 = colMap.getOrDefault(1, 1);
+            String sttStr = ExcelParserUtils.getString(row, col1, evaluator).trim();
+            Integer sttNum = null;
+            try { sttNum = Integer.parseInt(sttStr); } catch (Exception ignored) {}
+            boolean hasStt = sttNum != null && sttNum > 0;
+            boolean hasRank = data.getCapBac() != null && !data.getCapBac().trim().isEmpty();
+            boolean hasDob = data.getNgaySinh() != null;
+            boolean hasSalary = data.getLuongThangHienThuongTheoThongTu() != null && data.getLuongThangHienThuongTheoThongTu().compareTo(BigDecimal.ZERO) > 0;
+
+            boolean isRoman = isRomanNumeral(sttStr);
+            boolean isUnitMarker = isRoman || sttStr.equalsIgnoreCase("ĐV") || sttStr.equalsIgnoreCase("DV");
+            boolean isLetterCat = isLetterCategory(sttStr);
+            boolean isPol = isPolicyRow(hoTen) || isPolicyRow(sttStr);
+            boolean isEllip = isEllipsis(sttStr, hoTen);
+
+            boolean isCategory = lowerHoTen.startsWith("sĩquan") || lowerHoTen.startsWith("syquan") || lowerHoTen.startsWith("qncn")
+                    || lowerHoTen.startsWith("quânnhân") || lowerHoTen.startsWith("năm20") || lowerHoTen.startsWith("i.")
+                    || lowerHoTen.startsWith("ii.") || lowerHoTen.startsWith("iii.") || isLetterCat;
+            boolean isTotal = lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng");
+            boolean isNote = lowerHoTen.startsWith("ghichú") || lowerHoTen.startsWith("hướngdẫn");
+
+            if (isEllip || isPol) {
+                continue;
+            }
+
+            if (!hasStt && !hasRank && !hasDob && !hasSalary && (isCategory || isTotal || isNote || isUnitMarker || hoTen.isEmpty())) {
                 continue;
             }
 
             errorDetails.clear();
+            boolean hasInputErrors = false;
+
+            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty()) {
+                addError(row, colMap.getOrDefault(4, 4), "Cột 4: Thiếu cấp bậc quân nhân (không xác định được trần tuổi để thẩm định).", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getNgaySinh() == null) {
+                addError(row, colMap.getOrDefault(3, 3), "Cột 3: Không đọc được dữ liệu Ngày sinh (ô bị lỗi hoặc sai định dạng).", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getThoiDiemThoiViecHuongTroCap() == null) {
+                addError(row, colMap.getOrDefault(8, 8), "Cột 8: Không đọc được thời điểm thôi việc hưởng trợ cấp.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getLuongThangHienThuongTheoThongTu() == null || data.getLuongThangHienThuongTheoThongTu().compareTo(BigDecimal.ZERO) <= 0) {
+                addError(row, colMap.getOrDefault(9, 9), "Cột 9: Tiền lương tháng bị trống hoặc không hợp lệ.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+
+            if (hasInputErrors) {
+                writeNotesToRow(row, errorDetails, noteColumnIndex, redFont);
+                BigDecimal actTotal = data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo178() != null ? data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo178() : BigDecimal.ZERO;
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.2")
+                        .donVi((currentUnit != null && !currentUnit.isEmpty()) ? currentUnit : "BQP")
+                        .hoTen(!hoTen.isEmpty() ? hoTen : "[Thiếu họ tên]")
+                        .ngaySinh(data.getNgaySinh())
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
+                        .nghiHuuND178(false)
+                        .nghiThoiViec(true)
+                        .nghiHuuND177(false)
+                        .saiThoiGianDuocHuong(true)
+                        .saiTongSoTien(true)
+                        .tongTienThucTe(actTotal)
+                        .tongTienTinhLai(BigDecimal.ZERO)
+                        .tongTienChenhLech(actTotal.negate())
+                        .noiDungSoTienSai("Lỗi dữ liệu đầu vào: Không đủ dữ liệu hợp lệ để tính toán")
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
+                continue;
+            }
 
             com.bqpvalidateexcel.excel.model.expected.PLI2ExpectedResult exp = 
                 com.bqpvalidateexcel.excel.service.rules.PLI2Calculator.calculateExpected(data);
@@ -645,10 +822,16 @@ public class ExcelValidationService {
             int diffY = diffMonths / 12;
             int diffM = diffMonths % 12;
 
-            // Cột 10 = Số tháng thôi việc (khống chế tối đa 60 tháng)
+            // Cột 10 = Số tháng thôi việc (khống chế tối đa 60 tháng theo NĐ 178; dưới 5 năm khống chế theo tháng công tác)
             int cot10Actual = data.getSoThangThoiViecTheoThongTu() != null ? data.getSoThangThoiViecTheoThongTu() : 0;
-            checkCol(row, colMap.getOrDefault(10, 10), BigDecimal.valueOf(cot10Actual), BigDecimal.valueOf(exp.getCot10()), 
-                "Số tháng thôi việc khống chế tối đa 60 tháng (VD: " + c10 + ")", errorDetails, redFont, redStyleCache);
+            boolean isC10Correct60 = ((exp.getThangConLai() >= 60 || exp.getCot10() >= 60 || exp.getRawCot10() >= 60) && cot10Actual == 60);
+            if (!isC10Correct60) {
+                String fDesc10 = (exp.getMonthsCongTac() > 0 && exp.getMonthsCongTac() < 60)
+                    ? "Khống chế theo thời gian công tác " + exp.getMonthsCongTac() + " tháng (< 60 tháng theo NĐ 178)"
+                    : "Số tháng thôi việc khống chế tối đa 60 tháng (VD: " + c10 + ")";
+                checkCol(row, colMap.getOrDefault(10, 10), BigDecimal.valueOf(cot10Actual), BigDecimal.valueOf(exp.getCot10()), 
+                    fDesc10, errorDetails, redFont, redStyleCache);
+            }
 
             // Cột 11 = Cột 8 - Cột 5 = ...(năm) (làm tròn: <=0.5 -> +0.5, >0.5 -> +1)
             checkColTimeWithLabel(row, colMap.getOrDefault(11, 11), "Cột 11", data.getSoNamHuongTroCapTheoThongTu(), exp.getCot11(), 
@@ -697,14 +880,9 @@ public class ExcelValidationService {
             writeNotesToRow(row, errorDetails, noteColumnIndex, redFont);
 
             if (!errorDetails.isEmpty()) {
-                boolean c10Err = (cot10Actual != exp.getCot10());
+                boolean c10Err = (!isC10Correct60 && cot10Actual != exp.getCot10());
                 boolean c11Err = !isEqualTime(exp.getCot11(), data.getSoNamHuongTroCapTheoThongTu());
                 boolean saiThoiGian = c10Err || c11Err;
-
-                boolean diff24C10 = Math.abs(cot10Actual - exp.getCot10()) == 24;
-                boolean diff24C11 = (data.getSoNamHuongTroCapTheoThongTu() != null 
-                        && Math.abs(data.getSoNamHuongTroCapTheoThongTu().doubleValue() - exp.getCot11().doubleValue()) == 2.0);
-                boolean hasDiff24Months = diff24C10 || diff24C11;
 
                 BigDecimal actualTotal = data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo178() != null ? data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo178() : BigDecimal.ZERO;
                 BigDecimal expTotal = exp.getCot18();
@@ -731,28 +909,26 @@ public class ExcelValidationService {
 
                 String unit = (currentUnit != null && !currentUnit.isEmpty()) ? currentUnit : "BQP";
 
-                if (!hasDiff24Months) {
-                    errorRecords.add(ErrorRecordDto.builder()
-                            .sheetSource("I.2")
-                            .donVi(unit)
-                            .hoTen(data.getHoTen())
-                            .ngaySinh(data.getNgaySinh())
-                            .capBac(data.getCapBac())
-                            .chucVu(data.getChucVu())
-                            .nhapNgu(data.getNhapNgu())
-                            .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
-                            .nghiHuuND178(false)
-                            .nghiThoiViec(true)
-                            .nghiHuuND177(false)
-                            .saiThoiGianDuocHuong(saiThoiGian)
-                            .saiTongSoTien(saiTongTien)
-                            .tongTienThucTe(thucTe)
-                            .tongTienTinhLai(tinhLai)
-                            .tongTienChenhLech(chenhLech)
-                            .noiDungSoTienSai(soTienSaiText)
-                            .errorDetails(new ArrayList<>(errorDetails))
-                            .build());
-                }
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.2")
+                        .donVi(unit)
+                        .hoTen(data.getHoTen())
+                        .ngaySinh(data.getNgaySinh())
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
+                        .nghiHuuND178(false)
+                        .nghiThoiViec(true)
+                        .nghiHuuND177(false)
+                        .saiThoiGianDuocHuong(saiThoiGian)
+                        .saiTongSoTien(saiTongTien)
+                        .tongTienThucTe(thucTe)
+                        .tongTienTinhLai(tinhLai)
+                        .tongTienChenhLech(chenhLech)
+                        .noiDungSoTienSai(soTienSaiText)
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
             }
         }
         sheet.autoSizeColumn(noteColumnIndex);
@@ -795,15 +971,84 @@ public class ExcelValidationService {
             if (!optData.isPresent()) continue;
             
             PhuLucI3 data = optData.get();
-            if (data.getHoTen() == null || data.getHoTen().trim().isEmpty()) continue;
-            if (data.getHoTen().toLowerCase().replaceAll("\\s+", "").contains("cộng")) break;
-            
-            // Bỏ qua các dòng tiêu đề đơn vị cấp dưới, phân loại (không phải cá nhân)
-            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty() || data.getNgaySinh() == null) {
+            String hoTen = data.getHoTen() != null ? data.getHoTen().trim() : "";
+            String lowerHoTen = hoTen.toLowerCase().replaceAll("\\s+", "");
+            if (lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng")) break;
+
+            int col1 = colMap.getOrDefault(1, 1);
+            String sttStr = ExcelParserUtils.getString(row, col1, evaluator).trim();
+            Integer sttNum = null;
+            try { sttNum = Integer.parseInt(sttStr); } catch (Exception ignored) {}
+            boolean hasStt = sttNum != null && sttNum > 0;
+            boolean hasRank = data.getCapBac() != null && !data.getCapBac().trim().isEmpty();
+            boolean hasDob = data.getNgaySinh() != null;
+            boolean hasSalary = data.getLuongThangHienThuongTheoHuongDan() != null && data.getLuongThangHienThuongTheoHuongDan().compareTo(BigDecimal.ZERO) > 0;
+
+            boolean isRoman = isRomanNumeral(sttStr);
+            boolean isUnitMarker = isRoman || sttStr.equalsIgnoreCase("ĐV") || sttStr.equalsIgnoreCase("DV");
+            boolean isLetterCat = isLetterCategory(sttStr);
+            boolean isPol = isPolicyRow(hoTen) || isPolicyRow(sttStr);
+            boolean isEllip = isEllipsis(sttStr, hoTen);
+
+            boolean isCategory = lowerHoTen.startsWith("sĩquan") || lowerHoTen.startsWith("syquan") || lowerHoTen.startsWith("qncn")
+                    || lowerHoTen.startsWith("quânnhân") || lowerHoTen.startsWith("năm20") || lowerHoTen.startsWith("i.")
+                    || lowerHoTen.startsWith("ii.") || lowerHoTen.startsWith("iii.") || isLetterCat;
+            boolean isTotal = lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng");
+            boolean isNote = lowerHoTen.startsWith("ghichú") || lowerHoTen.startsWith("hướngdẫn");
+
+            if (isEllip || isPol) {
                 continue;
             }
-            
+
+            if (!hasStt && !hasRank && !hasDob && !hasSalary && (isCategory || isTotal || isNote || isUnitMarker || hoTen.isEmpty())) {
+                continue;
+            }
+
             errorDetails.clear();
+            boolean hasInputErrors = false;
+
+            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty()) {
+                addError(row, colMap.getOrDefault(4, 4), "Cột 4: Thiếu cấp bậc quân nhân (không xác định được trần tuổi để thẩm định).", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getNgaySinh() == null) {
+                addError(row, colMap.getOrDefault(3, 3), "Cột 3: Không đọc được dữ liệu Ngày sinh (ô bị lỗi hoặc sai định dạng).", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getThoiDiemNghiHuuHuongTroCap() == null) {
+                addError(row, colMap.getOrDefault(8, 8), "Cột 8: Không đọc được thời điểm nghỉ hưu hưởng trợ cấp.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getLuongThangHienThuongTheoHuongDan() == null || data.getLuongThangHienThuongTheoHuongDan().compareTo(BigDecimal.ZERO) <= 0) {
+                addError(row, colMap.getOrDefault(9, 9), "Cột 9: Tiền lương tháng bị trống hoặc không hợp lệ.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+
+            if (hasInputErrors) {
+                writeNotesToRow(row, errorDetails, noteColumnIndex, redFont);
+                BigDecimal actTotal = data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo177() != null ? data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo177() : BigDecimal.ZERO;
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.3")
+                        .donVi((currentUnit != null && !currentUnit.isEmpty()) ? currentUnit : "BQP")
+                        .hoTen(!hoTen.isEmpty() ? hoTen : "[Thiếu họ tên]")
+                        .ngaySinh(data.getNgaySinh())
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
+                        .nghiHuuND178(false)
+                        .nghiThoiViec(false)
+                        .nghiHuuND177(true)
+                        .saiThoiGianDuocHuong(true)
+                        .saiTongSoTien(true)
+                        .tongTienThucTe(actTotal)
+                        .tongTienTinhLai(BigDecimal.ZERO)
+                        .tongTienChenhLech(actTotal.negate())
+                        .noiDungSoTienSai("Lỗi dữ liệu đầu vào: Không đủ dữ liệu hợp lệ để tính toán")
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
+                continue;
+            }
             
             com.bqpvalidateexcel.excel.model.expected.PLI3ExpectedResult exp = 
                 com.bqpvalidateexcel.excel.service.rules.PLI3Calculator.calculateExpected(data);
@@ -858,14 +1103,6 @@ public class ExcelValidationService {
                 boolean c11Err = (data.getSoNamHuongTroCapTheoHuongDan() == null || !isEqualTime(exp.getCot11(), data.getSoNamHuongTroCapTheoHuongDan()));
                 boolean saiThoiGian = c10Err || c11Err;
 
-                boolean diff24C10 = (data.getSoThangThoiViecTheoHuongDan() != null 
-                        && (Math.abs(data.getSoThangThoiViecTheoHuongDan().doubleValue() - exp.getCot10().doubleValue()) == 2.0 
-                            || Math.abs(data.getSoThangThoiViecTheoHuongDan().doubleValue() - exp.getCot10().doubleValue()) == 24.0));
-                boolean diff24C11 = (data.getSoNamHuongTroCapTheoHuongDan() != null 
-                        && (Math.abs(data.getSoNamHuongTroCapTheoHuongDan().doubleValue() - exp.getCot11().doubleValue()) == 2.0
-                            || Math.abs(data.getSoNamHuongTroCapTheoHuongDan().doubleValue() - exp.getCot11().doubleValue()) == 24.0));
-                boolean hasDiff24Months = diff24C10 || diff24C11;
-
                 BigDecimal actualTotal = data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo177() != null ? data.getTongCongSoTienNghiThoiViecTheoNghiDinhSo177() : BigDecimal.ZERO;
                 boolean saiTongTien = !isEqual(exp.getCot15(), actualTotal);
                 String soTienSaiText = null;
@@ -890,28 +1127,26 @@ public class ExcelValidationService {
                     unit = "BQP";
                 }
 
-                if (!hasDiff24Months) {
-                    errorRecords.add(ErrorRecordDto.builder()
-                            .sheetSource("I.3")
-                            .donVi(unit)
-                            .hoTen(data.getHoTen())
-                            .ngaySinh(data.getNgaySinh())
-                            .capBac(data.getCapBac())
-                            .chucVu(data.getChucVu())
-                            .nhapNgu(data.getNhapNgu())
-                            .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
-                            .nghiHuuND178(false)
-                            .nghiThoiViec(false)
-                            .nghiHuuND177(true)
-                            .saiThoiGianDuocHuong(saiThoiGian)
-                            .saiTongSoTien(saiTongTien)
-                            .tongTienThucTe(thucTe)
-                            .tongTienTinhLai(tinhLai)
-                            .tongTienChenhLech(chenhLech)
-                            .noiDungSoTienSai(soTienSaiText)
-                            .errorDetails(new ArrayList<>(errorDetails))
-                            .build());
-                }
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.3")
+                        .donVi(unit)
+                        .hoTen(data.getHoTen())
+                        .ngaySinh(data.getNgaySinh())
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(data.getThoiGianDonViSapNhapGiaiThe())
+                        .nghiHuuND178(false)
+                        .nghiThoiViec(false)
+                        .nghiHuuND177(true)
+                        .saiThoiGianDuocHuong(saiThoiGian)
+                        .saiTongSoTien(saiTongTien)
+                        .tongTienThucTe(thucTe)
+                        .tongTienTinhLai(tinhLai)
+                        .tongTienChenhLech(chenhLech)
+                        .noiDungSoTienSai(soTienSaiText)
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
             }
         }
         sheet.autoSizeColumn(noteColumnIndex);
@@ -940,14 +1175,75 @@ public class ExcelValidationService {
             if (!optData.isPresent()) continue;
 
             PhuLucI5 data = optData.get();
-            if (data.getHoTen() == null || data.getHoTen().trim().isEmpty()) continue;
-            if (data.getHoTen().toLowerCase().replaceAll("\\s+", "").contains("cộng")) break;
+            String hoTen = data.getHoTen() != null ? data.getHoTen().trim() : "";
+            String lowerHoTen = hoTen.toLowerCase().replaceAll("\\s+", "");
+            if (lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng")) break;
 
-            if (data.getCapBac() == null && data.getHeSoLuong() == null) {
+            int col1 = colMap.getOrDefault(1, 1);
+            String sttStr = ExcelParserUtils.getString(row, col1, evaluator).trim();
+            Integer sttNum = null;
+            try { sttNum = Integer.parseInt(sttStr); } catch (Exception ignored) {}
+            boolean hasStt = sttNum != null && sttNum > 0;
+            boolean hasRank = data.getCapBac() != null && !data.getCapBac().trim().isEmpty();
+            boolean hasHsLuong = data.getHeSoLuong() != null && data.getHeSoLuong() > 0;
+
+            boolean isRoman = isRomanNumeral(sttStr);
+            boolean isUnitMarker = isRoman || sttStr.equalsIgnoreCase("ĐV") || sttStr.equalsIgnoreCase("DV");
+            boolean isLetterCat = isLetterCategory(sttStr);
+            boolean isPol = isPolicyRow(hoTen) || isPolicyRow(sttStr);
+            boolean isEllip = isEllipsis(sttStr, hoTen);
+
+            boolean isCategory = lowerHoTen.startsWith("sĩquan") || lowerHoTen.startsWith("syquan") || lowerHoTen.startsWith("qncn")
+                    || lowerHoTen.startsWith("quânnhân") || lowerHoTen.startsWith("năm20") || lowerHoTen.startsWith("i.")
+                    || lowerHoTen.startsWith("ii.") || lowerHoTen.startsWith("iii.") || isLetterCat;
+            boolean isTotal = lowerHoTen.contains("cộng") || lowerHoTen.startsWith("tổng");
+            boolean isNote = lowerHoTen.startsWith("ghichú") || lowerHoTen.startsWith("hướngdẫn");
+
+            if (isEllip || isPol) {
+                continue;
+            }
+
+            if (!hasStt && !hasRank && !hasHsLuong && (isCategory || isTotal || isNote || isUnitMarker || hoTen.isEmpty())) {
                 continue;
             }
 
             errorDetails.clear();
+            boolean hasInputErrors = false;
+
+            if (data.getCapBac() == null || data.getCapBac().trim().isEmpty()) {
+                addError(row, colMap.getOrDefault(5, 5), "Cột 5: Thiếu cấp bậc quân nhân.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+            if (data.getHeSoLuong() == null || data.getHeSoLuong() <= 0) {
+                addError(row, colMap.getOrDefault(6, 6), "Cột 6: Thiếu hoặc không đọc được hệ số lương.", errorDetails, redFont, redStyleCache);
+                hasInputErrors = true;
+            }
+
+            if (hasInputErrors) {
+                writeNotesToRow(row, errorDetails, noteColumnIndex, redFont);
+                BigDecimal actTotal = data.getTongCong() != null ? data.getTongCong() : BigDecimal.ZERO;
+                errorRecords.add(ErrorRecordDto.builder()
+                        .sheetSource("I.5")
+                        .donVi((currentUnit != null && !currentUnit.isEmpty()) ? currentUnit : "BQP")
+                        .hoTen(!hoTen.isEmpty() ? hoTen : "[Thiếu họ tên]")
+                        .ngaySinh(null)
+                        .capBac(data.getCapBac())
+                        .chucVu(data.getChucVu())
+                        .nhapNgu(data.getNhapNgu())
+                        .thoiGianDonViSapNhapGiaiThe(null)
+                        .nghiHuuND178(false)
+                        .nghiThoiViec(false)
+                        .nghiHuuND177(false)
+                        .saiThoiGianDuocHuong(false)
+                        .saiTongSoTien(true)
+                        .tongTienThucTe(actTotal)
+                        .tongTienTinhLai(BigDecimal.ZERO)
+                        .tongTienChenhLech(actTotal.negate())
+                        .noiDungSoTienSai("Lỗi dữ liệu đầu vào: Không đủ dữ liệu hợp lệ để tính toán")
+                        .errorDetails(new ArrayList<>(errorDetails))
+                        .build());
+                continue;
+            }
 
             PLI5ExpectedResult exp = PLI5Calculator.calculateExpected(data);
 

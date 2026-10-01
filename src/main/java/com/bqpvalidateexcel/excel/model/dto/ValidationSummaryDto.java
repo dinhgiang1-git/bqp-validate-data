@@ -26,4 +26,5 @@ public class ValidationSummaryDto {
     private BigDecimal totalDifference;
     private String totalDifferenceWords;
     private List<ErrorRecordDto> errorRecords;
+    private FormulaReadReport formulaReport;
 }

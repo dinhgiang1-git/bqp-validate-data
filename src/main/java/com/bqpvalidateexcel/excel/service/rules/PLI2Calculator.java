@@ -27,16 +27,6 @@ public class PLI2Calculator {
             rawThangConLai = (dobMonth + tran * 12) - retireMonth;
         }
 
-        // Cột 10: Số tháng thôi việc (khống chế tối đa 60 tháng)
-        int rawCot10 = (rawThangConLai > 0) ? Math.min(rawThangConLai, 60) : 60;
-        Integer actualC10 = data.getSoThangThoiViecTheoThongTu();
-        boolean c10Valid = (actualC10 != null && (actualC10 == rawCot10 || Math.abs(actualC10 - rawCot10) == 24 || Math.abs(actualC10 - rawCot10) == 2));
-        int cot10 = c10Valid ? actualC10 : rawCot10;
-        int thangConLai = c10Valid ? actualC10 : rawThangConLai;
-
-        // Điều kiện tuổi đời còn lại > 2 năm (24 tháng)
-        boolean isOver2Years = thangConLai > 24;
-
         // Cột 11 = Cột 8 - Cột 5 = ...(năm) (làm tròn: <= 0.5 -> +0.5, > 0.5 -> +1)
         int monthsCongTac = 0;
         if (data.getThoiDiemThoiViecHuongTroCap() != null && data.getNhapNgu() != null) {
@@ -44,9 +34,20 @@ public class PLI2Calculator {
             if (monthsCongTac < 0) monthsCongTac = 0;
         }
         BigDecimal rawCot11 = calcNamLamTron(monthsCongTac);
-        BigDecimal actualC11 = data.getSoNamHuongTroCapTheoThongTu();
-        boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawCot11) || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 2.0 || Math.abs(actualC11.doubleValue() - rawCot11.doubleValue()) == 24.0));
-        BigDecimal cot11 = c11Valid ? actualC11 : rawCot11;
+        BigDecimal cot11 = rawCot11;
+
+        // Cột 10: Số tháng thôi việc (khống chế tối đa 60 tháng theo NĐ 178; trường hợp thời gian đóng BHXH dưới 5 năm/60 tháng thì bằng đúng thời gian công tác thực tế có đóng BHXH)
+        int maxThangThoiViec = (monthsCongTac > 0 && monthsCongTac < 60) ? monthsCongTac : 60;
+        int rawCot10 = (rawThangConLai > 0) ? Math.min(rawThangConLai, maxThangThoiViec) : maxThangThoiViec;
+        // Quy tắc: Nếu dữ liệu thẩm định >= 60 mà trong file excel nhập vào chỉ có 60 thì coi như đúng
+        Integer actualC10 = data.getSoThangThoiViecTheoThongTu();
+        boolean isCapped60 = ((rawThangConLai >= 60 || rawCot10 >= 60) && actualC10 != null && actualC10 == 60);
+        int cot10 = isCapped60 ? 60 : rawCot10;
+        int thangConLai = rawThangConLai;
+
+        // Điều kiện tuổi đời còn lại từ đủ 2 năm (24 tháng) trở lên theo Khoản 1 Điều 10 TT 19
+        boolean isEligibleByAge = thangConLai >= 24;
+        boolean isOver2Years = isEligibleByAge;
 
         // Cột 8 - Cột 7 (khoảng cách tháng so với thời gian sáp nhập, giải thể)
         int distance8_7 = 0;
@@ -55,7 +56,7 @@ public class PLI2Calculator {
         }
 
         // Nhóm nghỉ trong 12 tháng đầu vs nghỉ từ tháng 13 trở đi
-        boolean isWithin12Months = distance8_7 <= 12;
+        boolean isWithin12Months = (data.getThoiGianDonViSapNhapGiaiThe() == null || distance8_7 <= 12);
 
         BigDecimal luong = data.getLuongThangHienThuongTheoThongTu() != null ? data.getLuongThangHienThuongTheoThongTu() : BigDecimal.ZERO;
 
@@ -66,7 +67,7 @@ public class PLI2Calculator {
         BigDecimal cot16 = BigDecimal.ZERO;
         BigDecimal cot17 = BigDecimal.ZERO;
 
-        if (isOver2Years) {
+        if (isEligibleByAge) {
             if (isWithin12Months) {
                 // Cột 12 = Cột 10 * 0.8 tháng * Cột 9
                 cot12 = BigDecimal.valueOf(cot10).multiply(BigDecimal.valueOf(0.8)).multiply(luong);
@@ -89,6 +90,7 @@ public class PLI2Calculator {
 
         return PLI2ExpectedResult.builder()
                 .cot10(cot10)
+                .rawCot10(rawCot10)
                 .cot11(cot11)
                 .cot12(cot12)
                 .cot13(cot13)
@@ -99,8 +101,11 @@ public class PLI2Calculator {
                 .cot18(cot18)
                 .isWithin12Months(isWithin12Months)
                 .isOver2Years(isOver2Years)
+                .isEligibleByAge(isEligibleByAge)
                 .distance8_7(distance8_7)
                 .thangConLai(thangConLai)
+                .monthsCongTac(monthsCongTac)
+                .maxThangThoiViec(maxThangThoiViec)
                 .build();
     }
 
