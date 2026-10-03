@@ -3574,11 +3574,361 @@ window.BQPValidation = (function () {
                 return ws;
             }
 
+            // Sheet Thống kê/Tổng hợp: tổng hợp theo tháng hoặc đơn vị, đối chiếu số kê khai với số thẩm định.
+            function buildThongKeSheet(records) {
+                const normName = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/\s+/g, '').toLowerCase();
+                const findSummaryWs = workbook => {
+                    if (!workbook || !workbook.getWorksheet) return null;
+                    return workbook.getWorksheet('Tổng hợp') || workbook.getWorksheet('Thống kê') ||
+                        (workbook.worksheets || []).find(sheet => {
+                            const key = normName(sheet.name);
+                            return key === 'tonghop' || key === 'thongke' || key.includes('phuluctonghop');
+                        }) || null;
+                };
+                const ws = findSummaryWs(exportWb);
+                if (!ws) return;
+                const rawWs = findSummaryWs(baseWb);
+                const layout = summaryLayout(ws);
+                const rawLayout = summaryLayout(rawWs);
+                let { dataStart, totalRowIdx, noteRowIdx } = layout;
+                const officerRanks = ['daita', 'thuongta', 'trungta', 'thieuta', 'daiuy', 'thuonguy', 'trunguy', 'thieuuy'];
+                function findRankColumns(sheet, headerRow) {
+                    const columns = new Map();
+                    for (let r = Math.max(1, headerRow - 2); r < headerRow; r++) {
+                        sheet.getRow(r).eachCell(cell => {
+                            const key = normName(cellText(cell));
+                            if (officerRanks.includes(key)) columns.set(key, cell.col);
+                            else if (key.includes('quannhanchuyennghiep') || key.includes('qncn')) columns.set('other', cell.col);
+                        });
+                    }
+                    return columns;
+                }
+                const rankColumns = findRankColumns(ws, layout.hdrRow);
+                const rawRankColumns = rawLayout ? findRankColumns(rawWs, rawLayout.hdrRow) : new Map();
+                const tableEndCol = Math.max(6, ...rankColumns.values());
+                const rawRankCell = (row, key, col) => {
+                    const rawCol = rawRankColumns.size ? rawRankColumns.get(key) : col;
+                    return row && rawCol ? row.getCell(rawCol) : null;
+                };
+
+                const borderAll = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                const fontBold13 = { name: 'Times New Roman', size: 13, bold: true, color: { argb: 'FF000000' } };
+                const fontNormal11 = { name: 'Times New Roman', size: 11, bold: false, color: { theme: 1 } };
+                const numFmt = '#,##0;[Red]#,##0';
+
+                function rankCol(rec) {
+                    const capBac = String(rec.capBac || rec.input?.capBac || '');
+                    const category = normName(rec.categoryCode || rec.categoryName || rec.category || rec.input?.categoryCode || rec.input?.category || '');
+                    const otherCol = rankColumns.get('other');
+                    const position = ['sq', 'siquan'].includes(category) ? '' : String(rec.chucVu || rec.input?.chucVu || '');
+                    if (/qncn|chuyennghiep|cnvcqp|cnqp|vcqp|ldhd|congnhan|vienchuc|laodong/.test(category) ||
+                        MilitaryRankHelper.checkIsQNCN(capBac, position)) return otherCol;
+                    const rank = normName(capBac);
+                    const namedRank = officerRanks.find(key => rank.includes(key));
+                    if (namedRank) return rankColumns.get(namedRank) || otherCol;
+                    const code = capBac.match(/(?<!\d)([1-4])\s*(\/\/|\/)(?!\/|\d)/);
+                    if (code) {
+                        const keys = code[2] === '//' ? ['thieuta', 'trungta', 'thuongta', 'daita'] : ['thieuuy', 'trunguy', 'thuonguy', 'daiuy'];
+                        return rankColumns.get(keys[Number(code[1]) - 1]) || otherCol;
+                    }
+                    return otherCol;
+                }
+
+                function extractMonth(rec) {
+                    const raw = rec.thoiDiemNghi || rec.retirementDate || rec.input?.thoiDiemNghi || rec.input?.retirementDate || rec.rawCols?.[8] || rec.rawCols?.[10] || '';
+                    const d = parseToValidDate(raw);
+                    return d ? d.getMonth() + 1 : 0;
+                }
+
+                function getEffectiveLevel(unitId, units) {
+                    if (!unitId || !Array.isArray(units)) return null;
+                    const byId = new Map();
+                    units.forEach(u => { if (u) byId.set(String(u.id), u); });
+                    const target = byId.get(String(unitId));
+                    if (!target) return null;
+                    if (target.level != null && target.level !== '') {
+                        const lvl = parseInt(String(target.level), 10);
+                        if (!isNaN(lvl) && lvl > 0) return lvl;
+                    }
+                    let curr = target, depth = 0;
+                    const visited = new Set();
+                    while (curr) {
+                        const id = String(curr.id);
+                        if (visited.has(id)) return null;
+                        visited.add(id);
+                        depth++;
+                        if (!curr.parentId) break;
+                        curr = byId.get(String(curr.parentId));
+                    }
+                    return depth || null;
+                }
+
+                const effLevel = getEffectiveLevel(exportContext?.selectedUnitId, exportContext?.units);
+                const hasUnits = exportContext?.selectedUnitId && Array.isArray(exportContext?.units) && exportContext.units.length > 0;
+                let childResolverFn = null;
+                if (hasUnits && effLevel === 1 && level2Resolver) {
+                    childResolverFn = unitId => {
+                        const res = level2Resolver.resolveUnit(unitId);
+                        return res.ok ? res.l2Unit : null;
+                    };
+                } else if (hasUnits && effLevel === 2) {
+                    const byId = new Map();
+                    exportContext.units.forEach(u => { if (u && u.id != null) byId.set(String(u.id), u); });
+                    const selIdStr = String(exportContext.selectedUnitId);
+                    const resolveCache = new Map();
+                    childResolverFn = unitId => {
+                        if (!unitId) return null;
+                        const idStr = String(unitId);
+                        if (resolveCache.has(idStr)) return resolveCache.get(idStr);
+                        if (idStr === selIdStr) { resolveCache.set(idStr, null); return null; }
+                        const u = byId.get(idStr);
+                        if (!u) { resolveCache.set(idStr, null); return null; }
+                        const path = [];
+                        const visited = new Set();
+                        let curr = u;
+                        while (curr) {
+                            const cid = String(curr.id);
+                            if (visited.has(cid)) { resolveCache.set(idStr, null); return null; }
+                            visited.add(cid);
+                            path.push(curr);
+                            if (cid === selIdStr) break;
+                            if (!curr.parentId) { resolveCache.set(idStr, null); return null; }
+                            curr = byId.get(String(curr.parentId));
+                            if (!curr) { resolveCache.set(idStr, null); return null; }
+                        }
+                        path.reverse();
+                        if (path.length < 2 || String(path[0].id) !== selIdStr) { resolveCache.set(idStr, null); return null; }
+                        const child = path[1];
+                        const order = child.orderIndex ?? child.displayOrder ?? 0;
+                        const result = { id: String(child.id), name: child.name || ('Đơn vị ' + child.id), displayOrder: Number(order) || 0 };
+                        resolveCache.set(idStr, result);
+                        return result;
+                    };
+                }
+
+                function mkRow() { return { i1: 0, i2: 0, i3: 0, ranks: Object.fromEntries([...rankColumns.values()].map(col => [col, 0])) }; }
+                const useUnits = !!childResolverFn;
+                let dataRows;
+                if (useUnits) {
+                    const unitMap = new Map();
+                    for (const rec of records) {
+                        const type = recordType(rec);
+                        if (!['I.1', 'I.2', 'I.3'].includes(type)) continue;
+                        const child = childResolverFn(rec.unitId);
+                        if (!child) continue;
+                        const col = rankCol(rec);
+                        if (!unitMap.has(child.id)) {
+                            const rd = mkRow();
+                            unitMap.set(child.id, { label: child.name, order: child.displayOrder, i1: rd.i1, i2: rd.i2, i3: rd.i3, ranks: rd.ranks });
+                        }
+                        const row = unitMap.get(child.id);
+                        if (type === 'I.1') row.i1++;
+                        else if (type === 'I.2') row.i2++;
+                        else row.i3++;
+                        if (col != null) row.ranks[col]++;
+                    }
+                    dataRows = [...unitMap.values()].sort((a, b) => {
+                        if (a.order !== b.order) return a.order - b.order;
+                        return String(a.label).localeCompare(String(b.label), 'vi');
+                    });
+                    dataRows.forEach((r, i) => r.tt = i + 1);
+                } else {
+                    dataRows = [];
+                    for (let m = 1; m <= 12; m++) {
+                        const rd = mkRow();
+                        dataRows.push({ tt: m, label: 'Tháng ' + m, i1: rd.i1, i2: rd.i2, i3: rd.i3, ranks: rd.ranks });
+                    }
+                    for (const rec of records) {
+                        const type = recordType(rec);
+                        if (!['I.1', 'I.2', 'I.3'].includes(type)) continue;
+                        const month = extractMonth(rec);
+                        if (month < 1 || month > 12) continue;
+                        const col = rankCol(rec);
+                        const row = dataRows[month - 1];
+                        if (type === 'I.1') row.i1++;
+                        else if (type === 'I.2') row.i2++;
+                        else row.i3++;
+                        if (col != null) row.ranks[col]++;
+                    }
+                }
+
+                function summaryLayout(sheet) {
+                    if (!sheet) return null;
+                    let hdrRow = 7;
+                    for (let r = 1; r <= Math.min(15, sheet.rowCount); r++) {
+                        if (cellText(sheet.getRow(r).getCell(1)) === 'A' && cellText(sheet.getRow(r).getCell(2)) === 'B') { hdrRow = r; break; }
+                    }
+                    const dataStart = hdrRow + 1;
+                    let totalRowIdx = 0, noteRowIdx = 0;
+                    for (let r = dataStart; r <= sheet.rowCount; r++) {
+                        const bVal = cellText(sheet.getRow(r).getCell(2));
+                        if (!totalRowIdx && /tổng\s*cộng/i.test(bVal)) totalRowIdx = r;
+                        sheet.getRow(r).eachCell(cell => {
+                            if (!noteRowIdx && /^ghi chú/i.test(cellText(cell))) noteRowIdx = r;
+                        });
+                        if (totalRowIdx && noteRowIdx) break;
+                    }
+                    if (!totalRowIdx) totalRowIdx = noteRowIdx || (sheet.rowCount + 1);
+                    return { hdrRow, dataStart, totalRowIdx, noteRowIdx };
+                }
+                const rawMap = new Map();
+                if (rawLayout) {
+                    for (let r = rawLayout.dataStart; r < rawLayout.totalRowIdx; r++) {
+                        const label = cellText(rawWs.getRow(r).getCell(2)).trim();
+                        if (label) rawMap.set(normName(label), rawWs.getRow(r));
+                    }
+                    if (rawLayout.totalRowIdx) rawMap.set('__total__', rawWs.getRow(rawLayout.totalRowIdx));
+                }
+
+                const neededRows = dataRows.length;
+                const availableRows = totalRowIdx - dataStart;
+                if (neededRows > availableRows) {
+                    shiftTemplateRows(ws, totalRowIdx, neededRows - availableRows);
+                    totalRowIdx += neededRows - availableRows;
+                    if (noteRowIdx) noteRowIdx += neededRows - availableRows;
+                }
+
+                for (let r = dataStart; r < totalRowIdx; r++) {
+                    const row = ws.getRow(r);
+                    for (let c = 1; c <= tableEndCol; c++) {
+                        const cell = row.getCell(c);
+                        if (!cell.isMerged || cell.master.address === cell.address) cell.value = null;
+                        clearCellNote(cell);
+                    }
+                }
+
+                const toNumber = value => {
+                    if (value == null || value === '') return null;
+                    if (value && value.richText) value = value.richText.map(part => part.text).join('');
+                    if (value && value.formula) value = value.result;
+                    if (typeof value === 'number') return isNaN(value) ? null : value;
+                    const text = String(value).replace(/\s+/g, '').trim();
+                    if (!text) return null;
+                    const n = (typeof BQPNormalization !== 'undefined' && BQPNormalization.number) ? BQPNormalization.number(text) : Number(text.replace(/[.,]/g, ''));
+                    return n == null || isNaN(n) ? null : n;
+                };
+                const rawText = value => {
+                    if (value == null || value === '') return '';
+                    if (value && value.richText) return value.richText.map(part => part.text).join('').trim();
+                    if (value && value.formula) value = value.result;
+                    return String(value).trim();
+                };
+                const fmtCount = value => BQPValidation.fmtMoney(Math.round(Number(value || 0)));
+                const setCheckedCount = (cell, rawCell, expected, font, alignment = {}) => {
+                    const rawVal = rawCell ? rawCell.value : null;
+                    const rawNum = toNumber(rawVal);
+                    const rawStr = rawText(rawVal);
+                    const expNum = Number(expected || 0);
+                    const hasDeclared = rawNum != null || rawStr !== '';
+                    const hasDiff = hasDeclared && (rawNum != null ? Math.round(rawNum) !== Math.round(expNum) : rawStr !== String(Math.round(expNum || 0)));
+                    if (hasDiff) {
+                        cell.value = {
+                            richText: [
+                                { text: (rawNum != null ? fmtCount(rawNum) : rawStr) + '\n', font: { name: 'Times New Roman', size: 9.5, strike: true, color: { argb: 'FFDC2626' } } },
+                                { text: fmtCount(expNum), font: { name: 'Times New Roman', size: 11, bold: true, strike: false, color: { argb: 'FF000000' } } }
+                            ]
+                        };
+                        cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true, ...alignment };
+                        return true;
+                    }
+                    cell.value = expNum || null;
+                    cell.numFmt = numFmt;
+                    cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true, ...alignment };
+                    cell.font = clone(font);
+                    return false;
+                };
+
+                const totals = mkRow();
+                for (let i = 0; i < dataRows.length; i++) {
+                    const r = dataStart + i;
+                    const d = dataRows[i];
+                    const row = ws.getRow(r);
+                    const rawRow = rawMap.get(normName(d.label));
+                    row.height = 25.15;
+                    const total = d.i1 + d.i2 + d.i3;
+                    let rowHasDiff = false;
+
+                    row.getCell(1).value = d.tt;
+                    row.getCell(1).font = clone(fontBold13);
+                    row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                    row.getCell(1).border = clone(borderAll);
+
+                    row.getCell(2).value = d.label;
+                    row.getCell(2).font = clone(fontBold13);
+                    row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                    row.getCell(2).border = clone(borderAll);
+
+                    for (const [c, v] of [[3, d.i1], [4, d.i2], [5, d.i3], [6, total]]) {
+                        const cell = row.getCell(c);
+                        rowHasDiff = setCheckedCount(cell, rawRow ? rawRow.getCell(c) : null, v, fontBold13) || rowHasDiff;
+                        cell.border = clone(borderAll);
+                    }
+                    for (const [key, c] of rankColumns) {
+                        const cell = row.getCell(c);
+                        rowHasDiff = setCheckedCount(cell, rawRankCell(rawRow, key, c), d.ranks[c] || 0, fontNormal11) || rowHasDiff;
+                        cell.border = clone(borderAll);
+                    }
+                    row.height = rowHasDiff ? Math.max(36, row.height || 0) : row.height;
+
+                    totals.i1 += d.i1;
+                    totals.i2 += d.i2;
+                    totals.i3 += d.i3;
+                    for (const c of rankColumns.values()) totals.ranks[c] += d.ranks[c];
+                }
+
+                for (let r = dataStart + neededRows; r < totalRowIdx; r++) {
+                    const row = ws.getRow(r);
+                    for (let c = 1; c <= tableEndCol; c++) {
+                        const cell = row.getCell(c);
+                        cell.value = null;
+                        cell.border = {};
+                    }
+                }
+
+                const tRow = ws.getRow(totalRowIdx);
+                const rawTotalRow = rawMap.get('__total__');
+                tRow.height = 25.15;
+                const grandTotal = totals.i1 + totals.i2 + totals.i3;
+                let totalHasDiff = false;
+                tRow.getCell(1).value = null;
+                tRow.getCell(1).font = clone(fontBold13);
+                tRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                tRow.getCell(1).border = clone(borderAll);
+                tRow.getCell(2).value = 'TỔNG CỘNG';
+                tRow.getCell(2).font = clone(fontBold13);
+                tRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+                tRow.getCell(2).border = clone(borderAll);
+                for (const [c, v] of [[3, totals.i1], [4, totals.i2], [5, totals.i3], [6, grandTotal]]) {
+                    const cell = tRow.getCell(c);
+                    totalHasDiff = setCheckedCount(cell, rawTotalRow ? rawTotalRow.getCell(c) : null, v, fontBold13) || totalHasDiff;
+                    cell.border = clone(borderAll);
+                }
+                for (const [key, c] of rankColumns) {
+                    const cell = tRow.getCell(c);
+                    totalHasDiff = setCheckedCount(cell, rawRankCell(rawTotalRow, key, c), totals.ranks[c] || 0, fontBold13) || totalHasDiff;
+                    cell.border = clone(borderAll);
+                }
+                tRow.height = totalHasDiff ? Math.max(36, tRow.height || 0) : tRow.height;
+
+                if (exportContext?.selectedUnitId && Array.isArray(exportContext?.units)) {
+                    const selUnit = exportContext.units.find(u => String(u.id) === String(exportContext.selectedUnitId));
+                    if (selUnit) {
+                        ws.getCell('A2').value = selUnit.name || 'Đơn vị';
+                        if (selUnit.parentId) {
+                            const parentUnit = exportContext.units.find(u => String(u.id) === String(selUnit.parentId));
+                            if (parentUnit) ws.getCell('A1').value = parentUnit.name || 'Đơn vị cấp trên';
+                        }
+                    }
+                }
+            }
+
             // Sheet Phụ lục I: Cập nhật tổng hợp toàn bộ hồ sơ thẩm định (2 giá trị cùng ô nếu sai lệch)
             if (templatePl1) {
                 const existingPl1 = exportWb.getWorksheet('Phụ lục I');
                 buildSummarySheet(exportWb, templatePl1, 'I', '', recordsToExport, existingPl1, level2Resolver);
             }
+            buildThongKeSheet(recordsToExport);
 
             if (!exportContext?.rawMode) {
                         // Với mỗi nhóm (correct/over/under), xử lý sheet tổng hợp và các phụ lục chi tiết
@@ -3667,8 +4017,8 @@ window.BQPValidation = (function () {
                     errSheet.getColumn(7).width = 50;
                 }
             } else {
-                // rawMode: chỉ giữ lại 6 sheet I, I.1-I.5; xóa tất cả còn lại
-                const keepSheets = new Set(['Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']);
+                // rawMode: giữ sheet tổng hợp/thống kê và 6 sheet I, I.1-I.5; xóa tất cả còn lại
+                const keepSheets = new Set(['Thống kê', 'Tổng hợp', 'Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']);
                 const sheetsToRemove = [];
                 exportWb.eachSheet(ws => { if (!keepSheets.has(ws.name)) sheetsToRemove.push(ws); });
                 sheetsToRemove.forEach(ws => exportWb.removeWorksheet(ws.id));
@@ -3676,8 +4026,9 @@ window.BQPValidation = (function () {
 
             // Sắp xếp thứ tự các sheet theo chuẩn logic báo cáo BQP
             const sheetPriority = exportContext?.rawMode
-                ? ['Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']
+                ? ['Thống kê', 'Tổng hợp', 'Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']
                 : [
+                    'Thống kê', 'Tổng hợp',
                     'Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3',
                     'Phụ lục II', 'Phụ lục II.1', 'Phụ lục II.2', 'Phụ lục II.3',
                     'Phụ lục III', 'Phụ lục III.1', 'Phụ lục III.2', 'Phụ lục III.3',

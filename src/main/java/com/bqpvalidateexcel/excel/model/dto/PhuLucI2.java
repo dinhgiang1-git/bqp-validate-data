@@ -20,6 +20,7 @@ public class PhuLucI2 {
 
     private String hoTen;
     private Date ngaySinh;
+    private boolean isNu;
     private String capBac;
     private String chucVu;
     private Date nhapNgu;

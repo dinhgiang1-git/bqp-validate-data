@@ -28,7 +28,7 @@ function fixture() {
             const totalCol = [0, 23, 18, 15][type];
             records.push({
                 id: `r${type}${status}`, hoTen: `Hồ sơ thật ${type}-${status}`, ngaySinh: '02/1970',
-                capBac: 'Đại tá', chucVu: 'Trợ lý', nhapNgu: '03/1988',
+                capBac: 'Đại tá', chucVu: 'Trợ lý', nhapNgu: '03/1988', thoiDiemNghi: '01/2026',
                 group: status === 2 ? 'Tiểu đoàn Alpha' : 'Sư đoàn Beta',
                 donVi: status === 2 ? 'Tiểu đoàn Alpha' : 'Sư đoàn Beta',
                 unitId: status === 2 ? 'c3a' : 'c2b', sheet: `I.${type}`, sheetSource: `I.${type}`,
@@ -48,6 +48,29 @@ function uploadedWorkbook() {
     ws.getCell('B12').value = 'Source workbook record';
     ws.getCell('W12').value = 987654321;
     ws.getColumn(1).width = 99;
+    return workbook;
+}
+
+function uploadedWorkbookWithDeclaredSummary(legacy = false) {
+    const workbook = uploadedWorkbook();
+    const ws = workbook.addWorksheet('Tổng hợp');
+    const ranks = ['Đại tá', 'Thượng tá', 'Trung tá', 'Thiếu tá', 'Đại uý', 'Thượng uý'];
+    if (!legacy) ranks.push('Trung uý', 'Thiếu uý');
+    ws.getRow(6).values = [null, null, null, null, null, null, ...ranks, 'Quân nhân chuyên nghiệp & đối tượng khác'];
+    ws.getRow(7).values = ['A', 'B', '1', '3', '5', '8= (2+4+6)'];
+    ws.getRow(8).values = [1, 'Tháng 1', 1, 0, 99, 100, 1];
+    ws.getRow(20).values = [null, 'TỔNG CỘNG', 1, 0, 99, 100, 1];
+    if (legacy) {
+        ws.getCell('M8').value = 4;
+        ws.getCell('M20').value = 3;
+    } else {
+        ws.getCell('M8').value = 9;
+        ws.getCell('N8').value = 'x';
+        ws.getCell('O8').value = { formula: 'SUM(O9:O19)', result: 99 };
+        ws.getCell('M20').value = 8;
+        ws.getCell('N20').value = 7;
+        ws.getCell('O20').value = 6;
+    }
     return workbook;
 }
 
@@ -141,6 +164,21 @@ function assertSummary(workbook, sheetName, records) {
     }
 }
 
+function assertCheckedSummaryCell(cell, declared, expected, message) {
+    assert(cell.value && cell.value.richText, `${message} should be marked as two-line validation value`);
+    assert.equal(cell.value.richText[0].text.trim(), String(declared), `${message} declared value`);
+    assert.equal(cell.value.richText[0].font.strike, true, `${message} declared value is struck through`);
+    assert.equal(cell.value.richText[1].text.trim(), String(expected), `${message} validated value`);
+    assert.equal(cell.alignment.wrapText, true, `${message} wraps validation lines`);
+    assert(cell.worksheet.getRow(cell.row).height >= 36, `${message} has room for both lines`);
+}
+
+function assertRankCounts(row, expected, message) {
+    const actual = Array.from({ length: 9 }, (_, i) => numeric(row.getCell(i + 7).value));
+    assert.deepEqual(actual, expected, `${message} officer and other counts`);
+    assert.equal(actual.reduce((sum, count) => sum + count, 0), numeric(row.getCell(6).value), `${message} ranks reconcile with personnel total`);
+}
+
 async function run() {
     const external = fs.readFileSync(path.join(staticDir, 'bqp_validation.js'), 'utf8').replace(/\r\n/g, '\n').trim();
     assert(inlineEngineCode().replace(/\r\n/g, '\n').trim() === external, 'Standalone and inline engine code must be identical');
@@ -172,6 +210,7 @@ async function run() {
     assertNoSamples(ordinary.workbook);
     assertDecreeBands(template, ordinary.workbook);
     for (const source of template.worksheets) {
+        if (source.name === 'Thống kê' || source.name === 'Tổng hợp') continue;
         const ws = ordinary.workbook.getWorksheet(source.name);
         const notes = [];
         ws.getRow(headerEnd(ws)).eachCell(cell => { if (cellText(cell) === 'Ghi chú thẩm định BQP') notes.push(cell.col); });
@@ -195,6 +234,61 @@ async function run() {
     assertSummary(ordinary.workbook, 'Phụ lục III', records.filter(r => r.diff < 0));
     assertSummary(ordinary.workbook, 'Phụ lục IV', records.filter(r => r.diff > 0));
     console.log('PASS: all real BQP sheets, headers, styles, merges, sample cleaning, classification and money');
+
+    const declaredSummary = await exportAndRead(sandbox, uploadedWorkbookWithDeclaredSummary(), records, context);
+    const thongKe = declaredSummary.workbook.getWorksheet('Thống kê');
+    assert(thongKe, 'Output keeps template summary/statistics sheet');
+    const janRow = findRow(thongKe, 'Tháng 1');
+    assert(janRow, 'Statistics sheet has January row');
+    assertCheckedSummaryCell(janRow.getCell(3), 1, 3, 'Thống kê Tháng 1 I.1 count');
+    assertCheckedSummaryCell(janRow.getCell(4), 0, 3, 'Thống kê Tháng 1 I.2 count');
+    assertCheckedSummaryCell(janRow.getCell(5), 99, 3, 'Thống kê Tháng 1 I.3 count');
+    assertCheckedSummaryCell(janRow.getCell(6), 100, 9, 'Thống kê Tháng 1 total count');
+    assertCheckedSummaryCell(janRow.getCell(7), 1, 9, 'Thống kê Tháng 1 Đại tá count');
+    assertCheckedSummaryCell(janRow.getCell(13), 9, 0, 'Thống kê Tháng 1 Trung úy count');
+    assertCheckedSummaryCell(janRow.getCell(14), 'x', 0, 'Thống kê Tháng 1 Thiếu úy count');
+    assertCheckedSummaryCell(janRow.getCell(15), 99, 0, 'Thống kê Tháng 1 QNCN and other count');
+    assert.equal(numeric(totalRow(thongKe).getCell(6).value), 9, 'Thống kê total uses validated total');
+    console.log('PASS: declared Tổng hợp/Thống kê values are struck through with validated values below');
+
+    const rankCases = [
+        ['Đại tá', 'SQ', null, 'Nhân viên'], ['Thượng tá'], ['Trung tá'], ['Thiếu tá'],
+        ['Đại úy'], ['Thượng uý'], ['Trung úy'], ['Thiếu uý'],
+        ['2/', 'SQ', '02/2026'], ['1/', 'SQ', '02/2026'],
+        ['Đại tá', 'QNCN'], ['Thiếu úy', 'CNVCQP'], ['Trung úy/CN'], ['Đối tượng khác']
+    ];
+    const rankRecords = rankCases.map(([capBac, categoryCode, thoiDiemNghi, chucVu], i) => ({
+        ...records[0], id: `rank-${i}`, hoTen: `Hồ sơ cấp bậc ${i}`, capBac, categoryCode,
+        chucVu: chucVu || records[0].chucVu,
+        thoiDiemNghi: thoiDiemNghi || '01/2026', unitId: i % 2 ? 'c2b' : 'c3a'
+    }));
+    const rankReport = await exportAndRead(sandbox, uploadedWorkbookWithDeclaredSummary(), rankRecords, context);
+    const rankSheet = rankReport.workbook.getWorksheet('Thống kê');
+    assertRankCounts(findRow(rankSheet, 'Tháng 1'), [1, 1, 1, 1, 1, 1, 1, 1, 4], 'January');
+    assertRankCounts(findRow(rankSheet, 'Tháng 2'), [0, 0, 0, 0, 0, 0, 1, 1, 0], 'February coded ranks');
+    assertRankCounts(findRow(rankSheet, 'Tháng 3'), [0, 0, 0, 0, 0, 0, 0, 0, 0], 'Empty month');
+    const rankTotal = totalRow(rankSheet);
+    assertRankCounts(rankTotal, [1, 1, 1, 1, 1, 1, 2, 2, 4], 'All months');
+    assertCheckedSummaryCell(rankTotal.getCell(13), 8, 2, 'Total Trung úy');
+    assertCheckedSummaryCell(rankTotal.getCell(14), 7, 2, 'Total Thiếu úy');
+    assertCheckedSummaryCell(rankTotal.getCell(15), 6, 4, 'Total QNCN and other');
+    assert.equal(findRow(rankSheet, 'Tháng 1').getCell(7).value, 1, 'Matching declared count stays numeric');
+    assert.equal(findRow(rankSheet, 'Tháng 2').getCell(15).value, null, 'Empty new column does not retain template sample');
+
+    const legacyReport = await exportAndRead(sandbox, uploadedWorkbookWithDeclaredSummary(true), rankRecords, context);
+    const legacySheet = legacyReport.workbook.getWorksheet('Thống kê');
+    const legacyJan = findRow(legacySheet, 'Tháng 1');
+    assert.equal(legacyJan.getCell(13).value, 1, 'Old QNCN column is not compared with new Trung úy column');
+    assert.equal(legacyJan.getCell(14).value, 1, 'Missing old Thiếu úy column receives validated count');
+    assert.equal(legacyJan.getCell(15).value, 4, 'Old QNCN count follows its header to new column O');
+    assertCheckedSummaryCell(totalRow(legacySheet).getCell(15), 3, 4, 'Old QNCN total compared in new column O');
+
+    const unitRankReport = await exportAndRead(sandbox, base, rankRecords, { ...context, selectedUnitId: 'c1', summaryLevel: 2, scope: 'branch', units });
+    const unitRankSheet = unitRankReport.workbook.getWorksheet('Thống kê');
+    assertRankCounts(findRow(unitRankSheet, 'Sư đoàn Alpha'), [1, 0, 1, 0, 1, 0, 2, 0, 2], 'Alpha unit');
+    assertRankCounts(findRow(unitRankSheet, 'Sư đoàn Beta'), [0, 1, 0, 1, 0, 1, 0, 2, 2], 'Beta unit');
+    assertRankCounts(totalRow(unitRankSheet), [1, 1, 1, 1, 1, 1, 2, 2, 4], 'All units');
+    console.log('PASS: new rank columns, monthly/unit totals, QNCN classification and legacy summary column mapping');
 
     const selected = records.filter(r => r.diff < 0);
     const filtered = await exportAndRead(sandbox, base, selected, context, true, records);

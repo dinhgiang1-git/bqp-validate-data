@@ -49,10 +49,14 @@ public class ExcelRowParsePLI3 {
         // Cột tổng: ưu tiên colMap[15]; fallback c15
         int c15 = getCol(colMap, 15, 15);
 
+        String ngaySinhRaw = ExcelParserUtils.getString(row, c3, formulaEvaluator);
+        boolean isNu = MilitaryRankHelper.detectIsNu(ngaySinhRaw);
+
         PhuLucI3 data = PhuLucI3.builder()
                 .rowIndex(rowIndex)
                 .hoTen(ExcelParserUtils.getString(row, c2, formulaEvaluator))
                 .ngaySinh(ExcelParserUtils.getDate(row, c3, formulaEvaluator))
+                .isNu(isNu)
                 .capBac(ExcelParserUtils.getString(row, c4, formulaEvaluator))
                 .chucVu(ExcelParserUtils.getString(row, c5, formulaEvaluator))
                 .nhapNgu(ExcelParserUtils.getDate(row, c6, formulaEvaluator))

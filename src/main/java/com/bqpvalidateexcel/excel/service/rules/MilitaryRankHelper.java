@@ -26,7 +26,17 @@ public class MilitaryRankHelper {
      * 2/  -> Trung úy (50, QNCN: 52)
      * 1/  -> Thiếu úy (50, QNCN: 52)
      */
+    /** Phát hiện giới tính nữ từ chuỗi ngày sinh: định dạng mm/YYYY + ký tự 'N', ví dụ "07/1975N". */
+    public static boolean detectIsNu(String rawNgaySinh) {
+        if (rawNgaySinh == null) return false;
+        return rawNgaySinh.trim().matches(".*\\d{4}\\s*[Nn]\\s*$");
+    }
+
     public static int getTran(String capBac, String chucVu) {
+        return getTran(capBac, chucVu, false);
+    }
+
+    public static int getTran(String capBac, String chucVu, boolean isNu) {
         if (capBac == null) return 0;
         String cb = capBac.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ");
         String cv = (chucVu != null) ? chucVu.replace('\u00A0', ' ').trim().toLowerCase().replaceAll("\\s+", " ") : "";
@@ -48,9 +58,9 @@ public class MilitaryRankHelper {
         if (cb.startsWith("24.") || cb.equals("24") || cb.startsWith("24cn") || cb.startsWith("24 cn")) {
             return 58;
         }
-        // 23.x: Thượng tá (trần 56)
+        // 23.x: Thượng tá (trần 56; Nữ: 55)
         if (cb.startsWith("23.") || cb.equals("23") || cb.startsWith("23cn") || cb.startsWith("23 cn")) {
-            return 56;
+            return isNu ? 55 : 56;
         }
         // 22.x: Trung tá (trần 54)
         if (cb.startsWith("22.") || cb.equals("22") || cb.startsWith("22cn") || cb.startsWith("22 cn")) {
@@ -69,9 +79,9 @@ public class MilitaryRankHelper {
         if (PATTERN_4_TA.matcher(cb).find() || cb.contains("đại tá") || cb.contains("đai tá")) {
             return 58;
         }
-        // 3//: Thượng tá
+        // 3//: Thượng tá (Nữ: 55)
         if (PATTERN_3_TA.matcher(cb).find() || cb.contains("thượng tá") || cb.contains("thượng tạ") || cb.contains("thuong tá") || cb.contains("thuong ta") || cb.contains("thượng\ntá")) {
-            return 56;
+            return isNu ? 55 : 56;
         }
         // 2//: Trung tá
         if (PATTERN_2_TA.matcher(cb).find() || cb.contains("trung tá")) {
@@ -106,7 +116,7 @@ public class MilitaryRankHelper {
 
         // Fallback kiểm tra chức vụ nếu cột cấp bậc ghi chức vụ hoặc tên chung
         if (cv.contains("đại tá") || cv.contains("đai tá")) return 58;
-        if (cv.contains("thượng tá") || cv.contains("thuong tá")) return 56;
+        if (cv.contains("thượng tá") || cv.contains("thuong tá")) return isNu ? 55 : 56;
         if (cv.contains("trung tá")) return 54;
         if (cv.contains("thiếu tá") || cv.contains("thiéu tá")) return isQNCN ? 54 : 52;
 

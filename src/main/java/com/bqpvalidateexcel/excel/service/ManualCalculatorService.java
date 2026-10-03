@@ -57,6 +57,7 @@ public class ManualCalculatorService {
             Date dob = parseDate(req.getNgaySinh());
             Date retire = parseDate(req.getThoiDiemNghi());
             Date enlist = parseDate(req.getNhapNgu());
+            boolean isNu = MilitaryRankHelper.detectIsNu(req.getNgaySinh());
 
             if (dob == null || retire == null) {
                 return ManualCalculateResponseDto.builder()
@@ -65,9 +66,9 @@ public class ManualCalculatorService {
                         .build();
             }
 
-            int tran = req.getTranTuoi() != null && req.getTranTuoi() > 0 
-                    ? req.getTranTuoi() 
-                    : MilitaryRankHelper.getTran(req.getCapBac(), req.getChucVu());
+            int tran = req.getTranTuoi() != null && req.getTranTuoi() > 0
+                    ? req.getTranTuoi()
+                    : MilitaryRankHelper.getTran(req.getCapBac(), req.getChucVu(), isNu);
             if (tran <= 0) tran = 58;
 
             BigDecimal luong = req.getLuongThang() != null ? req.getLuongThang() : BigDecimal.ZERO;
@@ -77,6 +78,7 @@ public class ManualCalculatorService {
                     .capBac(req.getCapBac())
                     .chucVu(req.getChucVu())
                     .ngaySinh(dob)
+                    .isNu(isNu)
                     .nhapNgu(enlist)
                     .thoiDiemNghiHuuHuongTroCap(retire)
                     .luongThangHienThuongTheoThongTu(luong)
@@ -100,7 +102,7 @@ public class ManualCalculatorService {
             items.add(CalculationItemDto.builder()
                     .colIndex(12).colName("Cột 12").title("Thời gian công tác đóng BHXH")
                     .value(exp.getCot12()).formattedValue(fmt(exp.getCot12()) + " năm").unit("năm")
-                    .formula("(Ngày nghỉ - Ngày nhập ngũ) / 12 (làm tròn theo quy tắc)")
+                    .formula("(Ngày nghỉ - 1 tháng - Ngày nhập ngũ) / 12 (< 6 tháng dư +0.5, >= 6 tháng dư +1)")
                     .build());
 
             items.add(CalculationItemDto.builder()
@@ -206,6 +208,7 @@ public class ManualCalculatorService {
             Date retire = parseDate(req.getThoiDiemNghi());
             Date enlist = parseDate(req.getNhapNgu());
             Date sapNhap = parseDate(req.getThoiGianDonViSapNhapGiaiThe());
+            boolean isNu = MilitaryRankHelper.detectIsNu(req.getNgaySinh());
 
             if (dob == null || retire == null) {
                 return ManualCalculateResponseDto.builder()
@@ -214,9 +217,9 @@ public class ManualCalculatorService {
                         .build();
             }
 
-            int tran = req.getTranTuoi() != null && req.getTranTuoi() > 0 
-                    ? req.getTranTuoi() 
-                    : MilitaryRankHelper.getTran(req.getCapBac(), req.getChucVu());
+            int tran = req.getTranTuoi() != null && req.getTranTuoi() > 0
+                    ? req.getTranTuoi()
+                    : MilitaryRankHelper.getTran(req.getCapBac(), req.getChucVu(), isNu);
             if (tran <= 0) tran = 54;
 
             BigDecimal luong = req.getLuongThang() != null ? req.getLuongThang() : BigDecimal.ZERO;
@@ -226,6 +229,7 @@ public class ManualCalculatorService {
                     .capBac(req.getCapBac())
                     .chucVu(req.getChucVu())
                     .ngaySinh(dob)
+                    .isNu(isNu)
                     .nhapNgu(enlist)
                     .thoiDiemThoiViecHuongTroCap(retire)
                     .thoiGianDonViSapNhapGiaiThe(sapNhap)
@@ -322,6 +326,7 @@ public class ManualCalculatorService {
             Date dob = parseDate(req.getNgaySinh());
             Date retire = parseDate(req.getThoiDiemNghi());
             Date enlist = parseDate(req.getNhapNgu());
+            boolean isNu = MilitaryRankHelper.detectIsNu(req.getNgaySinh());
 
             if (dob == null || retire == null) {
                 return ManualCalculateResponseDto.builder()
@@ -330,9 +335,9 @@ public class ManualCalculatorService {
                         .build();
             }
 
-            int tran = req.getTranTuoi() != null && req.getTranTuoi() > 0 
-                    ? req.getTranTuoi() 
-                    : MilitaryRankHelper.getTran(req.getCapBac(), req.getChucVu());
+            int tran = req.getTranTuoi() != null && req.getTranTuoi() > 0
+                    ? req.getTranTuoi()
+                    : MilitaryRankHelper.getTran(req.getCapBac(), req.getChucVu(), isNu);
             if (tran <= 0) tran = 58;
 
             BigDecimal luong = req.getLuongThang() != null ? req.getLuongThang() : BigDecimal.ZERO;
@@ -342,6 +347,7 @@ public class ManualCalculatorService {
                     .capBac(req.getCapBac())
                     .chucVu(req.getChucVu())
                     .ngaySinh(dob)
+                    .isNu(isNu)
                     .nhapNgu(enlist)
                     .thoiDiemNghiHuuHuongTroCap(retire)
                     .luongThangHienThuongTheoHuongDan(luong)
@@ -427,6 +433,7 @@ public class ManualCalculatorService {
     private Date parseDate(String s) {
         if (s == null || s.trim().isEmpty()) return null;
         s = s.trim().replace('-', '/').replace('.', '/');
+        s = s.replaceAll("(?i)[N]\\s*$", "").trim();
         String[] patterns = {
                 "dd/MM/yyyy", "MM/yyyy", "yyyy/MM/dd", "yyyy/MM", "yyyy"
         };

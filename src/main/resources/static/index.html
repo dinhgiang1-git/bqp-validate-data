@@ -2631,6 +2631,9 @@
         <span class="offline-status-badge" title="Ứng dụng hoạt động 100% ngoại tuyến trên máy tính nội bộ">
             <span class="status-dot"></span> Ngoại tuyến 100%
         </span>
+        <button type="button" class="btn-top" onclick="openChangePasswordModal()" id="btn_change_password" title="Đổi mật khẩu truy cập ứng dụng">
+            🔑 Đổi mật khẩu
+        </button>
         <button type="button" class="btn-top" onclick="openHelpModal()" id="btn_open_help" title="Xem hướng dẫn quy trình và trợ giúp thao tác">
             Trợ giúp
         </button>
@@ -2713,8 +2716,8 @@
                             <legend class="form-section-legend">2. Mốc thời gian</legend>
                             <div class="form-row two-col">
                                 <div>
-                                    <label for="i1_ngaySinh">Tháng năm sinh (Cột 2) <span class="req">*</span> <small class="form-hint">(MM/YYYY)</small></label>
-                                    <input type="text" id="i1_ngaySinh" placeholder="05/1971" required>
+                                    <label for="i1_ngaySinh">Tháng năm sinh (Cột 2) <span class="req">*</span> <small class="form-hint">(MM/YYYY; thêm N cho nữ: MM/YYYYN)</small></label>
+                                    <input type="text" id="i1_ngaySinh" placeholder="05/1971 hoặc 07/1976N (nữ)" required>
                                 </div>
                                 <div>
                                     <label for="i1_nhapNgu">Nhập ngũ (Cột 5) <small class="form-hint">(MM/YYYY)</small></label>
@@ -2869,8 +2872,8 @@
                             <legend class="form-section-legend">2. Mốc thời gian</legend>
                             <div class="form-row two-col">
                                 <div>
-                                    <label for="i2_ngaySinh">Tháng năm sinh (Cột 2) <span class="req">*</span> <small class="form-hint">(MM/YYYY)</small></label>
-                                    <input type="text" id="i2_ngaySinh" placeholder="08/1975" required>
+                                    <label for="i2_ngaySinh">Tháng năm sinh (Cột 2) <span class="req">*</span> <small class="form-hint">(MM/YYYY; thêm N cho nữ: MM/YYYYN)</small></label>
+                                    <input type="text" id="i2_ngaySinh" placeholder="08/1975 hoặc 07/1976N (nữ)" required>
                                 </div>
                                 <div>
                                     <label for="i2_nhapNgu">Nhập ngũ (Cột 5) <small class="form-hint">(MM/YYYY)</small></label>
@@ -3008,8 +3011,8 @@
                             <legend class="form-section-legend">2. Mốc thời gian</legend>
                             <div class="form-row two-col">
                                 <div>
-                                    <label for="i3_ngaySinh">Tháng năm sinh (Cột 2) <span class="req">*</span> <small class="form-hint">(MM/YYYY)</small></label>
-                                    <input type="text" id="i3_ngaySinh" placeholder="03/1969" required>
+                                    <label for="i3_ngaySinh">Tháng năm sinh (Cột 2) <span class="req">*</span> <small class="form-hint">(MM/YYYY; thêm N cho nữ: MM/YYYYN)</small></label>
+                                    <input type="text" id="i3_ngaySinh" placeholder="03/1969 hoặc 07/1976N (nữ)" required>
                                 </div>
                                 <div>
                                     <label for="i3_nhapNgu">Nhập ngũ (Cột 5) <span class="req">*</span> <small class="form-hint">(MM/YYYY)</small></label>
@@ -3313,6 +3316,48 @@
             </div>
         </div>
     </main>
+
+<!-- Modal Đổi mật khẩu -->
+<div class="modal-overlay" id="changePasswordModal" role="dialog" aria-modal="true" aria-labelledby="changePwdTitle" onclick="if(event.target===this) closeChangePasswordModal()">
+    <div class="modal-box" style="max-width:440px;">
+        <div class="modal-header">
+            <span id="changePwdTitle">🔑 Đổi mật khẩu truy cập</span>
+            <button type="button" class="modal-close" onclick="closeChangePasswordModal()" aria-label="Đóng">×</button>
+        </div>
+        <div class="modal-body" style="padding:22px 26px 18px;">
+            <div id="changePwdUnavailable" style="display:none; background:var(--color-warning-bg); border:1px solid #d6c06a; border-radius:8px; padding:14px 16px; color:var(--color-warning); font-size:13px; text-align:center;">
+                ⚠️ Tính năng đổi mật khẩu chỉ khả dụng khi mở ứng dụng qua <strong>Chay_CongCu_BQP.exe</strong>.
+            </div>
+            <div id="changePwdForm">
+                <p style="color:var(--text-muted); font-size:13px; margin:0 0 18px 0;">Mật khẩu mới sẽ có hiệu lực từ lần mở ứng dụng tiếp theo.</p>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block; font-size:13px; color:var(--text-secondary); margin-bottom:5px; font-weight:600;">Mật khẩu hiện tại</label>
+                    <input type="password" id="pwd_current" autocomplete="current-password"
+                        style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--text-main); font-size:14px; font-family:inherit;"
+                        placeholder="Nhập mật khẩu đang dùng..." />
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block; font-size:13px; color:var(--text-secondary); margin-bottom:5px; font-weight:600;">Mật khẩu mới</label>
+                    <input type="password" id="pwd_new" autocomplete="new-password"
+                        style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--text-main); font-size:14px; font-family:inherit;"
+                        placeholder="Ít nhất 4 ký tự..." />
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-size:13px; color:var(--text-secondary); margin-bottom:5px; font-weight:600;">Xác nhận mật khẩu mới</label>
+                    <input type="password" id="pwd_confirm" autocomplete="new-password"
+                        style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--text-main); font-size:14px; font-family:inherit;"
+                        placeholder="Nhập lại mật khẩu mới..." />
+                </div>
+                <div id="changePwdError" style="display:none; background:var(--color-danger-bg); border:1px solid #f0b4b0; border-radius:6px; padding:10px 14px; color:var(--color-danger); font-size:13px; margin-bottom:14px;"></div>
+                <div id="changePwdSuccess" style="display:none; background:var(--color-success-bg); border:1px solid #a3d9b8; border-radius:6px; padding:10px 14px; color:var(--color-success); font-size:13px; margin-bottom:14px;"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" onclick="closeChangePasswordModal()" class="btn-toolbar neutral">Hủy</button>
+            <button type="button" id="btn_do_change_pwd" onclick="doChangePassword()" class="btn-toolbar primary">Đổi mật khẩu</button>
+        </div>
+    </div>
+</div>
 
 <!-- Modal Trợ giúp & Hướng dẫn sử dụng nhanh -->
 <div class="modal-overlay" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" onclick="if(event.target===this) closeHelpModal()">
@@ -4832,7 +4877,7 @@
                     categoryCode: r.categoryCode || 'UNKNOWN',
                     sheetType: r.sheet || r.sheetType || 'I.1',
                     fullName: r.hoTen || r.fullName || '',
-                    birthDate: r.ngaySinh || r.birthDate || '',
+                    birthDate: r.ngaySinhRaw || r.ngaySinh || r.birthDate || '',
                     rank: r.capBac || r.rank || '',
                     position: r.chucVu || r.position || '',
                     enlistmentDate: r.nhapNgu || r.enlistmentDate || '',
@@ -6367,7 +6412,7 @@
 
                     gRecords.forEach(r => {
                         const dateNghi = BQPValidation.formatDate(r.thoiDiemNghi || (r.input && r.input.thoiDiemNghi)) || '---';
-                        const dateSinh = BQPValidation.formatDate(r.ngaySinh || (r.input && r.input.ngaySinh)) || '---';
+                        const dateSinh = r.ngaySinhRaw || BQPValidation.formatDate(r.ngaySinh || (r.input && r.input.ngaySinh)) || '---';
                         const dateNhapNgu = BQPValidation.formatDate(r.nhapNgu || (r.input && r.input.nhapNgu)) || '---';
                         const luongThang = r.luongThang ? BQPValidation.fmtMoney(r.luongThang) + '&nbsp;đ' : (r.input && r.input.luongThang ? BQPValidation.fmtMoney(r.input.luongThang) + '&nbsp;đ' : '---');
                         const hoTen = r.hoTen || (r.input && r.input.hoTen) || '---';
@@ -6826,7 +6871,7 @@
 
             const infoItems = [
                 { label: 'Họ và tên', value: inp.hoTen || '---' },
-                { label: 'Ngày/Năm sinh', value: inp.ngaySinh || '---' },
+                { label: 'Ngày/Năm sinh', value: r.ngaySinhRaw || inp.ngaySinh || '---' },
                 { label: 'Cấp bậc', value: inp.capBac || '---' },
                 { label: 'Chức vụ', value: inp.chucVu || '---' },
                 { label: 'Trần tuổi', value: (inp.tranTuoi ? inp.tranTuoi + ' tuổi' : '---') },
@@ -7002,7 +7047,7 @@
             const inp = r.input || r;
             if (inp) {
                 setVal('hoTen', inp.hoTen);
-                setVal('ngaySinh', inp.ngaySinh ? (typeof inp.ngaySinh === 'string' ? inp.ngaySinh : BQPValidation.formatDate(inp.ngaySinh)) : '');
+                setVal('ngaySinh', r.ngaySinhRaw || (inp.ngaySinh ? (typeof inp.ngaySinh === 'string' ? inp.ngaySinh : BQPValidation.formatDate(inp.ngaySinh)) : ''));
                 setVal('capBac', inp.capBac);
                 setVal('chucVu', inp.chucVu);
                 setVal('tranTuoi', inp.tranTuoi || '');
@@ -7057,7 +7102,7 @@
                 const accepted = await ConfirmModal.confirm({
                     title: 'Xóa toàn bộ danh sách Thẩm định & RAW',
                     message: `Xác nhận xóa đồng thời cả danh sách Sau thẩm định (${countVal.toLocaleString('vi-VN')} hồ sơ) và Chưa thẩm định (RAW: ${countExcel.toLocaleString('vi-VN')} hồ sơ)?`,
-                    details: 'Hệ thống sẽ đồng thời xóa sạch toàn bộ hồ sơ Excel ở cả hai danh sách: Chưa thẩm định (RAW) và Sau thẩm định.\nLưu ý: Cây đơn vị tổ chức sẽ được GIỮ NGUYÊN và không bị ảnh hưởng.\n\nHành động này không thể hoàn tác.',
+                    details: 'Hệ thống sẽ đồng thời xóa sạch toàn bộ hồ sơ Excel ở cả hai danh sách: Chưa thẩm định (RAW) và Sau thẩm định.\nĐồng thời XÓA các đơn vị (Cấp 2 trở xuống) không còn hồ sơ nào. Đơn vị Cấp 1 được giữ lại.\n\nHành động này không thể hoàn tác.',
                     tone: 'danger',
                     confirmLabel: 'Xóa cả 2 danh sách',
                     cancelLabel: 'Hủy bỏ'
@@ -7067,11 +7112,37 @@
                 try {
                     await StorageManager.clearSource('validated', false);
                     await StorageManager.clearSource('excel', false);
+
+                    let removedUnits = 0;
+                    const allUnits = StorageManager.getUnits();
+                    const rootIds = new Set(allUnits.filter(u => !u.parentId).map(u => u.id));
+                    for (const u of allUnits.filter(x => x.parentId && rootIds.has(x.parentId))) {
+                        try {
+                            let branchSize = 1;
+                            if (BqpStorageAdapter.isSqlite) {
+                                const infoResp = await fetch(`/api/units/${encodeURIComponent(u.id)}/branch-info`);
+                                const info = infoResp.ok ? await infoResp.json() : null;
+                                if (!info || !info.canDelete) continue;
+                                branchSize = (info.descendantCount || 0) + 1;
+                            } else {
+                                branchSize = UnitTreeManager.getAllDescendantIds(u.id, allUnits).length + 1;
+                            }
+                            const res = await StorageManager.deleteUnit(u.id, true);
+                            if (res && res.success !== false) removedUnits += branchSize;
+                        } catch (uErr) {
+                            console.warn('Không thể xóa đơn vị', u.name, uErr);
+                        }
+                    }
+                    if (removedUnits > 0 && UnitTreeManager.selectedUnitId && !StorageManager.getUnits().some(x => x.id === UnitTreeManager.selectedUnitId)) {
+                        UnitTreeManager.selectUnit('');
+                    }
+                    UnitTreeManager.renderTree();
+
                     refreshAllUnitSelects();
                     await BqpStorageAdapter.updateRecordCountsFromSqlite();
                     await this.render();
                     await updateTabCount();
-                    notifySuccess(`Đã xóa sạch đồng thời cả danh sách Sau thẩm định (${countVal.toLocaleString('vi-VN')}) và danh sách RAW (${countExcel.toLocaleString('vi-VN')}).`);
+                    notifySuccess(`Đã xóa sạch đồng thời cả danh sách Sau thẩm định (${countVal.toLocaleString('vi-VN')}) và danh sách RAW (${countExcel.toLocaleString('vi-VN')})` + (removedUnits > 0 ? `, cùng ${removedUnits} đơn vị.` : '.'));
                 } catch (e) {
                     notifyError('Không thể xóa toàn bộ danh sách: ' + e.message);
                 }
@@ -7301,6 +7372,7 @@
 
                             let cellErrors = {};
                             let ngaySinh = BQPValidation.ExcelParser.parseDateCell(row.getCell(colMap[3] || 3));
+                            let ngaySinhRawTxt = BQPValidation.ExcelParser.getCellText(row.getCell(colMap[3] || 3));
                             let chucVu = BQPValidation.ExcelParser.getCellText(row.getCell(colMap[5] || 5));
                             let nhapNgu = BQPValidation.ExcelParser.parseDateCell(row.getCell(colMap[6] || 6));
                             let sapNhap = BQPValidation.ExcelParser.parseDateCell(row.getCell(colMap[7] || 7));
@@ -7353,7 +7425,8 @@
                                 classificationSource: parserMode,
                                 classificationConfidence: 1.0,
                                 fullName: hoten,
-                                birthDate: BQPValidation.formatDate(ngaySinh),
+                                birthDate: (ngaySinhRawTxt && /^\d{1,2}[\/\-]\d{4}\D/.test(ngaySinhRawTxt)) ? ngaySinhRawTxt : BQPValidation.formatDate(ngaySinh),
+                                ngaySinhRaw: (ngaySinhRawTxt && /^\d{1,2}[\/\-]\d{4}\D/.test(ngaySinhRawTxt)) ? ngaySinhRawTxt : null,
                                 rank: capBac,
                                 position: chucVu,
                                 enlistmentDate: BQPValidation.formatDate(nhapNgu),
@@ -9425,6 +9498,20 @@ function saveRecordDirect(prefix) {
         return years + 1.0;
     }
 
+    function detectIsNu(ngaySinh) {
+        if (!ngaySinh || typeof ngaySinh !== 'string') return false;
+        return /\d{4}\s*[Nn]\s*$/.test(ngaySinh.trim());
+    }
+
+    function calcNamBHXH(months) {
+        if (months <= 0) return 0;
+        let years = Math.floor(months / 12);
+        let rem = months % 12;
+        if (rem === 0) return years;
+        if (rem < 6) return years + 0.5;
+        return years + 1.0;
+    }
+
     const MilitaryRankHelper = {
         checkIsQNCN(capBac, chucVu) {
             let cb = (capBac || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -9441,7 +9528,7 @@ function saveRecordDirect(prefix) {
                 || cb.includes(' cn') || cb.includes('/cn') || cb.endsWith('cn') || cb.includes('cia') || cb.includes('chuyên nghiệp');
         },
 
-        getTran(capBac, chucVu) {
+        getTran(capBac, chucVu, isNu) {
             if (!capBac && !chucVu) return 0;
             let cb = (capBac || '').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
             let cv = (chucVu || '').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -9450,13 +9537,13 @@ function saveRecordDirect(prefix) {
             cb = cb.replace(/^[-–—\s]+/, '');
 
             if (cb.startsWith('24.') || cb === '24' || cb.startsWith('24cn') || cb.startsWith('24 cn')) return 58;
-            if (cb.startsWith('23.') || cb === '23' || cb.startsWith('23cn') || cb.startsWith('23 cn')) return 56;
+            if (cb.startsWith('23.') || cb === '23' || cb.startsWith('23cn') || cb.startsWith('23 cn')) return isNu ? 55 : 56;
             if (cb.startsWith('22.') || cb === '22' || cb.startsWith('22cn') || cb.startsWith('22 cn')) return 54;
             if (cb.startsWith('21.') || cb === '21' || cb.startsWith('21cn') || cb.startsWith('21 cn')) return isQNCN ? 54 : 52;
             if (cb.startsWith('14.') || cb === '14' || cb.startsWith('14cn') || cb.startsWith('14 cn')) return isQNCN ? 52 : 50;
 
             if (/(?<!\d)4\s*\/\//.test(cb) || cb.includes('đại tá') || cb.includes('đai tá')) return 58;
-            if (/(?<!\d)3\s*\/\//.test(cb) || cb.includes('thượng tá') || cb.includes('thượng tạ') || cb.includes('thuong tá')) return 56;
+            if (/(?<!\d)3\s*\/\//.test(cb) || cb.includes('thượng tá') || cb.includes('thượng tạ') || cb.includes('thuong tá')) return isNu ? 55 : 56;
             if (/(?<!\d)2\s*\/\//.test(cb) || cb.includes('trung tá')) return 54;
             if (/(?<!\d)1\s*\/\//.test(cb) || cb.includes('thiếu tá') || cb.includes('thiéu tá')) return isQNCN ? 54 : 52;
 
@@ -9468,7 +9555,7 @@ function saveRecordDirect(prefix) {
             if (cb.includes('uý') || cb.includes('úy')) return isQNCN ? 52 : 50;
 
             if (cv.includes('đại tá') || cv.includes('đai tá')) return 58;
-            if (cv.includes('thượng tá') || cv.includes('thuong tá')) return 56;
+            if (cv.includes('thượng tá') || cv.includes('thuong tá')) return isNu ? 55 : 56;
             if (cv.includes('trung tá')) return 54;
             if (cv.includes('thiếu tá') || cv.includes('thiéu tá')) return isQNCN ? 54 : 52;
 
@@ -9491,9 +9578,10 @@ function saveRecordDirect(prefix) {
             return { valid: false, error: "Vui lòng nhập Tháng năm sinh (Cột 2) và Thời điểm nghỉ hưu (Cột 8)." };
         }
 
+        let isNu = detectIsNu(data.ngaySinh);
         let tran = parseInt(data.tranTuoi, 10);
         if (isNaN(tran) || tran <= 0) {
-            tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu) || 58;
+            tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu, isNu) || 58;
         }
 
         let retireYear = dNgaySinh.year + tran;
@@ -9505,9 +9593,9 @@ function saveRecordDirect(prefix) {
 
         let cot11 = calcNamLamTron(rawCot10);
 
-        let diffBHXH = dNhapNgu ? calcMonthDiff(dNghi, dNhapNgu) : 0;
+        let diffBHXH = dNhapNgu ? calcMonthDiff(dNghi, dNhapNgu) - 1 : 0;
         if (diffBHXH < 0) diffBHXH = 0;
-        let cot12 = calcNamLamTron(diffBHXH);
+        let cot12 = calcNamBHXH(diffBHXH);
 
         let timeSapNhap = dSapNhap ? calcMonthDiff(dNghi, dSapNhap) : 0;
         let nhoHon12 = (!dSapNhap || timeSapNhap <= 12);
@@ -9554,7 +9642,7 @@ function saveRecordDirect(prefix) {
         let rows = [
             { col: "Cột 10", title: "Tháng nghỉ hưu trước tuổi", formula: `(${data.ngaySinh} + ${tran} tuổi) - ${data.thoiDiemNghi} + 1 tháng (tính cả 2 đầu tháng)`, val: `${rawCot10} tháng` },
             { col: "Cột 11", title: "Năm nghỉ hưu trước tuổi", formula: `${rawCot10} / 12 = ${(rawCot10/12).toFixed(2)}  làm tròn theo quy tắc`, val: `${formatNum(cot11)} năm` },
-            { col: "Cột 12", title: "Thời gian đóng BHXH", formula: `${data.thoiDiemNghi} - ${data.nhapNgu || '---'} = ${diffBHXH} tháng  làm tròn`, val: `${formatNum(cot12)} năm` },
+            { col: "Cột 12", title: "Thời gian đóng BHXH", formula: `(${data.thoiDiemNghi} - 1 tháng) - ${data.nhapNgu || '---'} = ${diffBHXH} tháng  làm tròn`, val: `${formatNum(cot12)} năm` },
             { col: "Cột 13", title: "Trợ cấp nghỉ sớm (HS 1.0)", formula: cot13 > 0 ? `${cappedCot10} tháng × 1.0 × ${formatMoney(luong)}` : "Không áp dụng", val: formatMoney(cot13), active: cot13 > 0 },
             { col: "Cột 14", title: "Trợ cấp nghỉ sớm (HS 0.9)", formula: cot14 > 0 ? `${cappedCot10} tháng × 0.9 × ${formatMoney(luong)}` : "Không áp dụng", val: formatMoney(cot14), active: cot14 > 0 },
             { col: "Cột 15", title: "Trợ cấp nghỉ sớm (HS 0.5)", formula: cot15 > 0 ? `${cappedCot10} tháng × 0.5 × ${formatMoney(luong)}` : "Không áp dụng", val: formatMoney(cot15), active: cot15 > 0 },
@@ -9599,9 +9687,10 @@ function saveRecordDirect(prefix) {
             return { valid: false, error: "Vui lòng nhập Tháng năm sinh (Cột 2) và Thời điểm thôi việc (Cột 8)." };
         }
 
+        let isNu = detectIsNu(data.ngaySinh);
         let tran = parseInt(data.tranTuoi, 10);
         if (isNaN(tran) || tran <= 0) {
-            tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu) || 54;
+            tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu, isNu) || 54;
         }
 
         let retireYear = dNgaySinh.year + tran;
@@ -9678,9 +9767,10 @@ function saveRecordDirect(prefix) {
             return { valid: false, error: "Vui lòng nhập Tháng năm sinh (Cột 2), Nhập ngũ (Cột 5) và Thời điểm nghỉ (Cột 8)." };
         }
 
+        let isNu = detectIsNu(data.ngaySinh);
         let tran = parseInt(data.tranTuoi, 10);
         if (isNaN(tran) || tran <= 0) {
-            tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu) || 58;
+            tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu, isNu) || 58;
         }
 
         let diffBHXH = calcMonthDiff(dNghi, dNhapNgu);
@@ -9941,14 +10031,101 @@ function saveRecordDirect(prefix) {
         });
     }
 
+    // Modal Đổi mật khẩu
+    function openChangePasswordModal() {
+        const modal = document.getElementById('changePasswordModal');
+        if (!modal) return;
+        // Reset form
+        ['pwd_current','pwd_new','pwd_confirm'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const errEl = document.getElementById('changePwdError');
+        const okEl  = document.getElementById('changePwdSuccess');
+        if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+        if (okEl)  { okEl.style.display  = 'none'; okEl.textContent  = ''; }
+        const btn = document.getElementById('btn_do_change_pwd');
+        if (btn) { btn.disabled = false; btn.textContent = 'Đổi mật khẩu'; }
+
+        // Kiểm tra tính năng có khả dụng không
+        fetch('/api/security/password-status')
+            .then(r => r.json())
+            .then(data => {
+                const unavail = document.getElementById('changePwdUnavailable');
+                const form    = document.getElementById('changePwdForm');
+                if (unavail && form) {
+                    unavail.style.display = data.available ? 'none' : 'block';
+                    form.style.display    = data.available ? 'block' : 'none';
+                }
+            })
+            .catch(() => {});
+
+        modal.classList.add('open');
+    }
+
+    function closeChangePasswordModal() {
+        const modal = document.getElementById('changePasswordModal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    function doChangePassword() {
+        const current  = (document.getElementById('pwd_current')?.value || '').trim();
+        const newPwd   = document.getElementById('pwd_new')?.value || '';
+        const confirm  = document.getElementById('pwd_confirm')?.value || '';
+        const errEl    = document.getElementById('changePwdError');
+        const okEl     = document.getElementById('changePwdSuccess');
+        const btn      = document.getElementById('btn_do_change_pwd');
+
+        function showErr(msg) {
+            if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+            if (okEl)  okEl.style.display = 'none';
+        }
+        function showOk(msg) {
+            if (okEl)  { okEl.textContent  = msg; okEl.style.display  = 'block'; }
+            if (errEl) errEl.style.display = 'none';
+        }
+
+        if (!current) { showErr('Vui lòng nhập mật khẩu hiện tại.'); return; }
+        if (!newPwd || newPwd.length < 4) { showErr('Mật khẩu mới phải có ít nhất 4 ký tự.'); return; }
+        if (newPwd !== confirm) { showErr('Mật khẩu xác nhận không khớp.'); return; }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Đang xử lý...'; }
+        if (errEl) errEl.style.display = 'none';
+        if (okEl)  okEl.style.display  = 'none';
+
+        fetch('/api/security/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword: current, newPassword: newPwd, confirmPassword: confirm })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                showOk('✅ ' + data.message);
+                ['pwd_current','pwd_new','pwd_confirm'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                if (btn) { btn.disabled = true; btn.textContent = 'Đã đổi thành công'; }
+            } else {
+                showErr('❌ ' + (data.message || 'Có lỗi xảy ra.'));
+                if (btn) { btn.disabled = false; btn.textContent = 'Đổi mật khẩu'; }
+            }
+        })
+        .catch(err => {
+            showErr('❌ Lỗi kết nối: ' + err.message);
+            if (btn) { btn.disabled = false; btn.textContent = 'Đổi mật khẩu'; }
+        });
+    }
+
     // Modal Trợ giúp & Cây đơn vị helpers
     function openHelpModal() {
         const m = document.getElementById('helpModal');
-        if (m) m.classList.add('active');
+        if (m) m.classList.add('open');
     }
     function closeHelpModal() {
         const m = document.getElementById('helpModal');
-        if (m) m.classList.remove('active');
+        if (m) m.classList.remove('open');
     }
 
     if (typeof UnitTreeManager !== 'undefined') {
@@ -10291,7 +10468,7 @@ window.BQPValidation = (function () {
                 || cb.includes(' cn') || cb.includes('/cn') || cb.endsWith('cn') || cb.includes('cia') || cb.includes('chuyên nghiệp');
         },
 
-        getTran(capBac, chucVu) {
+        getTran(capBac, chucVu, isNu) {
             if (!capBac && !chucVu) return 0;
             let cb = (capBac || '').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
             let cv = (chucVu || '').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -10300,13 +10477,13 @@ window.BQPValidation = (function () {
             cb = cb.replace(/^[-–—\s]+/, '');
 
             if (cb.startsWith('24.') || cb === '24' || cb.startsWith('24cn') || cb.startsWith('24 cn')) return 58;
-            if (cb.startsWith('23.') || cb === '23' || cb.startsWith('23cn') || cb.startsWith('23 cn')) return 56;
+            if (cb.startsWith('23.') || cb === '23' || cb.startsWith('23cn') || cb.startsWith('23 cn')) return isNu ? 55 : 56;
             if (cb.startsWith('22.') || cb === '22' || cb.startsWith('22cn') || cb.startsWith('22 cn')) return 54;
             if (cb.startsWith('21.') || cb === '21' || cb.startsWith('21cn') || cb.startsWith('21 cn')) return isQNCN ? 54 : 52;
             if (cb.startsWith('14.') || cb === '14' || cb.startsWith('14cn') || cb.startsWith('14 cn')) return isQNCN ? 52 : 50;
 
             if (/(?<!\d)4\s*\/\//.test(cb) || cb.includes('đại tá') || cb.includes('đai tá')) return 58;
-            if (/(?<!\d)3\s*\/\//.test(cb) || cb.includes('thượng tá') || cb.includes('thượng tạ') || cb.includes('thuong tá')) return 56;
+            if (/(?<!\d)3\s*\/\//.test(cb) || cb.includes('thượng tá') || cb.includes('thượng tạ') || cb.includes('thuong tá')) return isNu ? 55 : 56;
             if (/(?<!\d)2\s*\/\//.test(cb) || cb.includes('trung tá')) return 54;
             if (/(?<!\d)1\s*\/\//.test(cb) || cb.includes('thiếu tá') || cb.includes('thiéu tá')) return isQNCN ? 54 : 52;
 
@@ -10318,7 +10495,7 @@ window.BQPValidation = (function () {
             if (cb.includes('uý') || cb.includes('úy')) return isQNCN ? 52 : 50;
 
             if (cv.includes('đại tá') || cv.includes('đai tá')) return 58;
-            if (cv.includes('thượng tá') || cv.includes('thuong tá')) return 56;
+            if (cv.includes('thượng tá') || cv.includes('thuong tá')) return isNu ? 55 : 56;
             if (cv.includes('trung tá')) return 54;
             if (cv.includes('thiếu tá') || cv.includes('thiéu tá')) return isQNCN ? 54 : 52;
 
@@ -10372,6 +10549,21 @@ window.BQPValidation = (function () {
         return years + 1.0;
     }
 
+    function calcNamBHXH(thang) {
+        if (thang <= 0) return 0;
+        let years = Math.floor(thang / 12);
+        let rem = thang % 12;
+        if (rem === 0) return years;
+        if (rem < 6) return years + 0.5;
+        return years + 1.0;
+    }
+
+    function detectIsNu(ngaySinh) {
+        if (!ngaySinh) return false;
+        let s = (ngaySinh instanceof Date) ? '' : String(ngaySinh);
+        return /\d{4}\s*[Nn]\s*$/.test(s.trim());
+    }
+
     function isEqual(a, b) {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
@@ -10420,6 +10612,11 @@ window.BQPValidation = (function () {
         if (typeof d === 'string') {
             let s = d.trim();
             if (/^\d{1,2}[\/\-]\d{4}$/.test(s)) return s;
+            const mmyyyySuffix = s.match(/^(\d{1,2})[\/\-](\d{4})\D/);
+            if (mmyyyySuffix) {
+                let m = parseInt(mmyyyySuffix[1], 10);
+                return (m < 10 ? '0' + m : m) + '/' + mmyyyySuffix[2];
+            }
             const ddmmyyyy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
             if (ddmmyyyy) {
                 let m = parseInt(ddmmyyyy[2], 10);
@@ -10501,7 +10698,8 @@ window.BQPValidation = (function () {
     // 1. Phụ lục I.1 (Nghỉ hưu NĐ 178)
     const PLI1Calculator = {
         calculateExpected(data) {
-            let tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu);
+            let isNu = data.isNu || detectIsNu(data.ngaySinhRaw != null ? data.ngaySinhRaw : data.ngaySinh);
+            let tran = MilitaryRankHelper.getTran(data.capBac, data.chucVu, isNu);
             let dNgaySinh = toDateObj(data.ngaySinh);
             let dThoiDiemNghi = toDateObj(data.thoiDiemNghi);
             let dNhapNgu = toDateObj(data.nhapNgu);
@@ -10529,9 +10727,9 @@ window.BQPValidation = (function () {
             let c11Valid = c11Num != null && (isEqualTime(c11Num, rawExp11) || (rawCot10 >= 60 && (c11Num === 5 || isEqualTime(c11Num, 5))));
             let cot11 = c11Valid ? c11Num : rawExp11;
 
-            let monthsC12 = calcThang(dThoiDiemNghi, dNhapNgu);
+            let monthsC12 = calcThang(dThoiDiemNghi, dNhapNgu) - 1;
             if (monthsC12 < 0) monthsC12 = 0;
-            let rawExp12 = calcNamLamTron(monthsC12);
+            let rawExp12 = calcNamBHXH(monthsC12);
             let actualC12 = data.cot12Actual != null ? data.cot12Actual : (data.rawCols ? data.rawCols[12] : null);
             let c12Num = (typeof actualC12 === 'number') ? actualC12 : (actualC12 != null ? parseFloat(String(actualC12).replace(/,/g, '.').replace(/[^0-9.-]/g, '')) : null);
             let c12Valid = c12Num != null && isEqualTime(c12Num, rawExp12);
@@ -10749,8 +10947,8 @@ window.BQPValidation = (function () {
             let tiLeC11 = (valC11 > 1.0) ? (valC11 / 100) : valC11;
             let cot18 = Math.round(base14_15_16 * tiLeC11);
 
-            // Cột 19 = 25% * (Cột 14 + Cột 15 + Cột 16)
-            let cot19 = Math.round(base14_15_16 * 0.25);
+            // Cột 19 = 25% * (Cột 13 + Cột 14 + Cột 15 + Cột 17)
+            let cot19 = Math.round((cot13 + cot14 + cot15 + cot17) * 0.25);
 
             // Cột 20 = Cột 12 * (Cột 14 + Cột 15 + Cột 16)
             let rawC12 = data.tiLePhuCapDacThu != null ? data.tiLePhuCapDacThu : (data.rawCols && data.rawCols[12]);
@@ -12378,6 +12576,10 @@ window.BQPValidation = (function () {
         rec.chucVu = extractPlainText(rec.chucVu || rec.position || (rec.input && (rec.input.chucVu || rec.input.position)) || '');
         rec.position = rec.chucVu;
         const rawNs = rec.ngaySinh || rec.birthDate || (rec.input && (rec.input.ngaySinh || rec.input.birthDate)) || null;
+        if (!rec.ngaySinhRaw && rawNs != null && typeof rawNs === 'string') {
+            const _s = String(rawNs).trim();
+            if (_s && /^\d{1,2}[\/\-]\d{4}\D/.test(_s)) rec.ngaySinhRaw = _s;
+        }
         rec.ngaySinh = rawNs ? formatDate(rawNs) : null;
         rec.birthDate = rec.ngaySinh;
         const rawNn = rec.nhapNgu || rec.enlistmentDate || (rec.input && (rec.input.nhapNgu || rec.input.enlistmentDate)) || null;
@@ -13005,7 +13207,7 @@ window.BQPValidation = (function () {
 
                 function applyRecordToRow(row, rec, sttNum) {
                     const nameVal = rec.hoTen || (rec.input && rec.input.hoTen) || '';
-                    const dobVal = rec.ngaySinh != null ? rec.ngaySinh : ((rec.input && rec.input.ngaySinh) || '');
+                    const dobVal = rec.ngaySinhRaw || rec.ngaySinh || (rec.input && rec.input.ngaySinh) || '';
                     const cbVal = rec.capBac || (rec.input && rec.input.capBac) || '';
                     const cvVal = rec.chucVu || (rec.input && rec.input.chucVu) || '';
                     const nnVal = rec.nhapNgu || rec.enlistmentDate || rec.input?.nhapNgu || rec.rawCols?.[6] || '';
@@ -13704,11 +13906,361 @@ window.BQPValidation = (function () {
                 return ws;
             }
 
+            // Sheet Thống kê/Tổng hợp: tổng hợp theo tháng hoặc đơn vị, đối chiếu số kê khai với số thẩm định.
+            function buildThongKeSheet(records) {
+                const normName = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/\s+/g, '').toLowerCase();
+                const findSummaryWs = workbook => {
+                    if (!workbook || !workbook.getWorksheet) return null;
+                    return workbook.getWorksheet('Tổng hợp') || workbook.getWorksheet('Thống kê') ||
+                        (workbook.worksheets || []).find(sheet => {
+                            const key = normName(sheet.name);
+                            return key === 'tonghop' || key === 'thongke' || key.includes('phuluctonghop');
+                        }) || null;
+                };
+                const ws = findSummaryWs(exportWb);
+                if (!ws) return;
+                const rawWs = findSummaryWs(baseWb);
+                const layout = summaryLayout(ws);
+                const rawLayout = summaryLayout(rawWs);
+                let { dataStart, totalRowIdx, noteRowIdx } = layout;
+                const officerRanks = ['daita', 'thuongta', 'trungta', 'thieuta', 'daiuy', 'thuonguy', 'trunguy', 'thieuuy'];
+                function findRankColumns(sheet, headerRow) {
+                    const columns = new Map();
+                    for (let r = Math.max(1, headerRow - 2); r < headerRow; r++) {
+                        sheet.getRow(r).eachCell(cell => {
+                            const key = normName(cellText(cell));
+                            if (officerRanks.includes(key)) columns.set(key, cell.col);
+                            else if (key.includes('quannhanchuyennghiep') || key.includes('qncn')) columns.set('other', cell.col);
+                        });
+                    }
+                    return columns;
+                }
+                const rankColumns = findRankColumns(ws, layout.hdrRow);
+                const rawRankColumns = rawLayout ? findRankColumns(rawWs, rawLayout.hdrRow) : new Map();
+                const tableEndCol = Math.max(6, ...rankColumns.values());
+                const rawRankCell = (row, key, col) => {
+                    const rawCol = rawRankColumns.size ? rawRankColumns.get(key) : col;
+                    return row && rawCol ? row.getCell(rawCol) : null;
+                };
+
+                const borderAll = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                const fontBold13 = { name: 'Times New Roman', size: 13, bold: true, color: { argb: 'FF000000' } };
+                const fontNormal11 = { name: 'Times New Roman', size: 11, bold: false, color: { theme: 1 } };
+                const numFmt = '#,##0;[Red]#,##0';
+
+                function rankCol(rec) {
+                    const capBac = String(rec.capBac || rec.input?.capBac || '');
+                    const category = normName(rec.categoryCode || rec.categoryName || rec.category || rec.input?.categoryCode || rec.input?.category || '');
+                    const otherCol = rankColumns.get('other');
+                    const position = ['sq', 'siquan'].includes(category) ? '' : String(rec.chucVu || rec.input?.chucVu || '');
+                    if (/qncn|chuyennghiep|cnvcqp|cnqp|vcqp|ldhd|congnhan|vienchuc|laodong/.test(category) ||
+                        MilitaryRankHelper.checkIsQNCN(capBac, position)) return otherCol;
+                    const rank = normName(capBac);
+                    const namedRank = officerRanks.find(key => rank.includes(key));
+                    if (namedRank) return rankColumns.get(namedRank) || otherCol;
+                    const code = capBac.match(/(?<!\d)([1-4])\s*(\/\/|\/)(?!\/|\d)/);
+                    if (code) {
+                        const keys = code[2] === '//' ? ['thieuta', 'trungta', 'thuongta', 'daita'] : ['thieuuy', 'trunguy', 'thuonguy', 'daiuy'];
+                        return rankColumns.get(keys[Number(code[1]) - 1]) || otherCol;
+                    }
+                    return otherCol;
+                }
+
+                function extractMonth(rec) {
+                    const raw = rec.thoiDiemNghi || rec.retirementDate || rec.input?.thoiDiemNghi || rec.input?.retirementDate || rec.rawCols?.[8] || rec.rawCols?.[10] || '';
+                    const d = parseToValidDate(raw);
+                    return d ? d.getMonth() + 1 : 0;
+                }
+
+                function getEffectiveLevel(unitId, units) {
+                    if (!unitId || !Array.isArray(units)) return null;
+                    const byId = new Map();
+                    units.forEach(u => { if (u) byId.set(String(u.id), u); });
+                    const target = byId.get(String(unitId));
+                    if (!target) return null;
+                    if (target.level != null && target.level !== '') {
+                        const lvl = parseInt(String(target.level), 10);
+                        if (!isNaN(lvl) && lvl > 0) return lvl;
+                    }
+                    let curr = target, depth = 0;
+                    const visited = new Set();
+                    while (curr) {
+                        const id = String(curr.id);
+                        if (visited.has(id)) return null;
+                        visited.add(id);
+                        depth++;
+                        if (!curr.parentId) break;
+                        curr = byId.get(String(curr.parentId));
+                    }
+                    return depth || null;
+                }
+
+                const effLevel = getEffectiveLevel(exportContext?.selectedUnitId, exportContext?.units);
+                const hasUnits = exportContext?.selectedUnitId && Array.isArray(exportContext?.units) && exportContext.units.length > 0;
+                let childResolverFn = null;
+                if (hasUnits && effLevel === 1 && level2Resolver) {
+                    childResolverFn = unitId => {
+                        const res = level2Resolver.resolveUnit(unitId);
+                        return res.ok ? res.l2Unit : null;
+                    };
+                } else if (hasUnits && effLevel === 2) {
+                    const byId = new Map();
+                    exportContext.units.forEach(u => { if (u && u.id != null) byId.set(String(u.id), u); });
+                    const selIdStr = String(exportContext.selectedUnitId);
+                    const resolveCache = new Map();
+                    childResolverFn = unitId => {
+                        if (!unitId) return null;
+                        const idStr = String(unitId);
+                        if (resolveCache.has(idStr)) return resolveCache.get(idStr);
+                        if (idStr === selIdStr) { resolveCache.set(idStr, null); return null; }
+                        const u = byId.get(idStr);
+                        if (!u) { resolveCache.set(idStr, null); return null; }
+                        const path = [];
+                        const visited = new Set();
+                        let curr = u;
+                        while (curr) {
+                            const cid = String(curr.id);
+                            if (visited.has(cid)) { resolveCache.set(idStr, null); return null; }
+                            visited.add(cid);
+                            path.push(curr);
+                            if (cid === selIdStr) break;
+                            if (!curr.parentId) { resolveCache.set(idStr, null); return null; }
+                            curr = byId.get(String(curr.parentId));
+                            if (!curr) { resolveCache.set(idStr, null); return null; }
+                        }
+                        path.reverse();
+                        if (path.length < 2 || String(path[0].id) !== selIdStr) { resolveCache.set(idStr, null); return null; }
+                        const child = path[1];
+                        const order = child.orderIndex ?? child.displayOrder ?? 0;
+                        const result = { id: String(child.id), name: child.name || ('Đơn vị ' + child.id), displayOrder: Number(order) || 0 };
+                        resolveCache.set(idStr, result);
+                        return result;
+                    };
+                }
+
+                function mkRow() { return { i1: 0, i2: 0, i3: 0, ranks: Object.fromEntries([...rankColumns.values()].map(col => [col, 0])) }; }
+                const useUnits = !!childResolverFn;
+                let dataRows;
+                if (useUnits) {
+                    const unitMap = new Map();
+                    for (const rec of records) {
+                        const type = recordType(rec);
+                        if (!['I.1', 'I.2', 'I.3'].includes(type)) continue;
+                        const child = childResolverFn(rec.unitId);
+                        if (!child) continue;
+                        const col = rankCol(rec);
+                        if (!unitMap.has(child.id)) {
+                            const rd = mkRow();
+                            unitMap.set(child.id, { label: child.name, order: child.displayOrder, i1: rd.i1, i2: rd.i2, i3: rd.i3, ranks: rd.ranks });
+                        }
+                        const row = unitMap.get(child.id);
+                        if (type === 'I.1') row.i1++;
+                        else if (type === 'I.2') row.i2++;
+                        else row.i3++;
+                        if (col != null) row.ranks[col]++;
+                    }
+                    dataRows = [...unitMap.values()].sort((a, b) => {
+                        if (a.order !== b.order) return a.order - b.order;
+                        return String(a.label).localeCompare(String(b.label), 'vi');
+                    });
+                    dataRows.forEach((r, i) => r.tt = i + 1);
+                } else {
+                    dataRows = [];
+                    for (let m = 1; m <= 12; m++) {
+                        const rd = mkRow();
+                        dataRows.push({ tt: m, label: 'Tháng ' + m, i1: rd.i1, i2: rd.i2, i3: rd.i3, ranks: rd.ranks });
+                    }
+                    for (const rec of records) {
+                        const type = recordType(rec);
+                        if (!['I.1', 'I.2', 'I.3'].includes(type)) continue;
+                        const month = extractMonth(rec);
+                        if (month < 1 || month > 12) continue;
+                        const col = rankCol(rec);
+                        const row = dataRows[month - 1];
+                        if (type === 'I.1') row.i1++;
+                        else if (type === 'I.2') row.i2++;
+                        else row.i3++;
+                        if (col != null) row.ranks[col]++;
+                    }
+                }
+
+                function summaryLayout(sheet) {
+                    if (!sheet) return null;
+                    let hdrRow = 7;
+                    for (let r = 1; r <= Math.min(15, sheet.rowCount); r++) {
+                        if (cellText(sheet.getRow(r).getCell(1)) === 'A' && cellText(sheet.getRow(r).getCell(2)) === 'B') { hdrRow = r; break; }
+                    }
+                    const dataStart = hdrRow + 1;
+                    let totalRowIdx = 0, noteRowIdx = 0;
+                    for (let r = dataStart; r <= sheet.rowCount; r++) {
+                        const bVal = cellText(sheet.getRow(r).getCell(2));
+                        if (!totalRowIdx && /tổng\s*cộng/i.test(bVal)) totalRowIdx = r;
+                        sheet.getRow(r).eachCell(cell => {
+                            if (!noteRowIdx && /^ghi chú/i.test(cellText(cell))) noteRowIdx = r;
+                        });
+                        if (totalRowIdx && noteRowIdx) break;
+                    }
+                    if (!totalRowIdx) totalRowIdx = noteRowIdx || (sheet.rowCount + 1);
+                    return { hdrRow, dataStart, totalRowIdx, noteRowIdx };
+                }
+                const rawMap = new Map();
+                if (rawLayout) {
+                    for (let r = rawLayout.dataStart; r < rawLayout.totalRowIdx; r++) {
+                        const label = cellText(rawWs.getRow(r).getCell(2)).trim();
+                        if (label) rawMap.set(normName(label), rawWs.getRow(r));
+                    }
+                    if (rawLayout.totalRowIdx) rawMap.set('__total__', rawWs.getRow(rawLayout.totalRowIdx));
+                }
+
+                const neededRows = dataRows.length;
+                const availableRows = totalRowIdx - dataStart;
+                if (neededRows > availableRows) {
+                    shiftTemplateRows(ws, totalRowIdx, neededRows - availableRows);
+                    totalRowIdx += neededRows - availableRows;
+                    if (noteRowIdx) noteRowIdx += neededRows - availableRows;
+                }
+
+                for (let r = dataStart; r < totalRowIdx; r++) {
+                    const row = ws.getRow(r);
+                    for (let c = 1; c <= tableEndCol; c++) {
+                        const cell = row.getCell(c);
+                        if (!cell.isMerged || cell.master.address === cell.address) cell.value = null;
+                        clearCellNote(cell);
+                    }
+                }
+
+                const toNumber = value => {
+                    if (value == null || value === '') return null;
+                    if (value && value.richText) value = value.richText.map(part => part.text).join('');
+                    if (value && value.formula) value = value.result;
+                    if (typeof value === 'number') return isNaN(value) ? null : value;
+                    const text = String(value).replace(/\s+/g, '').trim();
+                    if (!text) return null;
+                    const n = (typeof BQPNormalization !== 'undefined' && BQPNormalization.number) ? BQPNormalization.number(text) : Number(text.replace(/[.,]/g, ''));
+                    return n == null || isNaN(n) ? null : n;
+                };
+                const rawText = value => {
+                    if (value == null || value === '') return '';
+                    if (value && value.richText) return value.richText.map(part => part.text).join('').trim();
+                    if (value && value.formula) value = value.result;
+                    return String(value).trim();
+                };
+                const fmtCount = value => BQPValidation.fmtMoney(Math.round(Number(value || 0)));
+                const setCheckedCount = (cell, rawCell, expected, font, alignment = {}) => {
+                    const rawVal = rawCell ? rawCell.value : null;
+                    const rawNum = toNumber(rawVal);
+                    const rawStr = rawText(rawVal);
+                    const expNum = Number(expected || 0);
+                    const hasDeclared = rawNum != null || rawStr !== '';
+                    const hasDiff = hasDeclared && (rawNum != null ? Math.round(rawNum) !== Math.round(expNum) : rawStr !== String(Math.round(expNum || 0)));
+                    if (hasDiff) {
+                        cell.value = {
+                            richText: [
+                                { text: (rawNum != null ? fmtCount(rawNum) : rawStr) + '\n', font: { name: 'Times New Roman', size: 9.5, strike: true, color: { argb: 'FFDC2626' } } },
+                                { text: fmtCount(expNum), font: { name: 'Times New Roman', size: 11, bold: true, strike: false, color: { argb: 'FF000000' } } }
+                            ]
+                        };
+                        cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true, ...alignment };
+                        return true;
+                    }
+                    cell.value = expNum || null;
+                    cell.numFmt = numFmt;
+                    cell.alignment = { horizontal: 'right', vertical: 'middle', wrapText: true, ...alignment };
+                    cell.font = clone(font);
+                    return false;
+                };
+
+                const totals = mkRow();
+                for (let i = 0; i < dataRows.length; i++) {
+                    const r = dataStart + i;
+                    const d = dataRows[i];
+                    const row = ws.getRow(r);
+                    const rawRow = rawMap.get(normName(d.label));
+                    row.height = 25.15;
+                    const total = d.i1 + d.i2 + d.i3;
+                    let rowHasDiff = false;
+
+                    row.getCell(1).value = d.tt;
+                    row.getCell(1).font = clone(fontBold13);
+                    row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                    row.getCell(1).border = clone(borderAll);
+
+                    row.getCell(2).value = d.label;
+                    row.getCell(2).font = clone(fontBold13);
+                    row.getCell(2).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                    row.getCell(2).border = clone(borderAll);
+
+                    for (const [c, v] of [[3, d.i1], [4, d.i2], [5, d.i3], [6, total]]) {
+                        const cell = row.getCell(c);
+                        rowHasDiff = setCheckedCount(cell, rawRow ? rawRow.getCell(c) : null, v, fontBold13) || rowHasDiff;
+                        cell.border = clone(borderAll);
+                    }
+                    for (const [key, c] of rankColumns) {
+                        const cell = row.getCell(c);
+                        rowHasDiff = setCheckedCount(cell, rawRankCell(rawRow, key, c), d.ranks[c] || 0, fontNormal11) || rowHasDiff;
+                        cell.border = clone(borderAll);
+                    }
+                    row.height = rowHasDiff ? Math.max(36, row.height || 0) : row.height;
+
+                    totals.i1 += d.i1;
+                    totals.i2 += d.i2;
+                    totals.i3 += d.i3;
+                    for (const c of rankColumns.values()) totals.ranks[c] += d.ranks[c];
+                }
+
+                for (let r = dataStart + neededRows; r < totalRowIdx; r++) {
+                    const row = ws.getRow(r);
+                    for (let c = 1; c <= tableEndCol; c++) {
+                        const cell = row.getCell(c);
+                        cell.value = null;
+                        cell.border = {};
+                    }
+                }
+
+                const tRow = ws.getRow(totalRowIdx);
+                const rawTotalRow = rawMap.get('__total__');
+                tRow.height = 25.15;
+                const grandTotal = totals.i1 + totals.i2 + totals.i3;
+                let totalHasDiff = false;
+                tRow.getCell(1).value = null;
+                tRow.getCell(1).font = clone(fontBold13);
+                tRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                tRow.getCell(1).border = clone(borderAll);
+                tRow.getCell(2).value = 'TỔNG CỘNG';
+                tRow.getCell(2).font = clone(fontBold13);
+                tRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+                tRow.getCell(2).border = clone(borderAll);
+                for (const [c, v] of [[3, totals.i1], [4, totals.i2], [5, totals.i3], [6, grandTotal]]) {
+                    const cell = tRow.getCell(c);
+                    totalHasDiff = setCheckedCount(cell, rawTotalRow ? rawTotalRow.getCell(c) : null, v, fontBold13) || totalHasDiff;
+                    cell.border = clone(borderAll);
+                }
+                for (const [key, c] of rankColumns) {
+                    const cell = tRow.getCell(c);
+                    totalHasDiff = setCheckedCount(cell, rawRankCell(rawTotalRow, key, c), totals.ranks[c] || 0, fontBold13) || totalHasDiff;
+                    cell.border = clone(borderAll);
+                }
+                tRow.height = totalHasDiff ? Math.max(36, tRow.height || 0) : tRow.height;
+
+                if (exportContext?.selectedUnitId && Array.isArray(exportContext?.units)) {
+                    const selUnit = exportContext.units.find(u => String(u.id) === String(exportContext.selectedUnitId));
+                    if (selUnit) {
+                        ws.getCell('A2').value = selUnit.name || 'Đơn vị';
+                        if (selUnit.parentId) {
+                            const parentUnit = exportContext.units.find(u => String(u.id) === String(selUnit.parentId));
+                            if (parentUnit) ws.getCell('A1').value = parentUnit.name || 'Đơn vị cấp trên';
+                        }
+                    }
+                }
+            }
+
             // Sheet Phụ lục I: Cập nhật tổng hợp toàn bộ hồ sơ thẩm định (2 giá trị cùng ô nếu sai lệch)
             if (templatePl1) {
                 const existingPl1 = exportWb.getWorksheet('Phụ lục I');
                 buildSummarySheet(exportWb, templatePl1, 'I', '', recordsToExport, existingPl1, level2Resolver);
             }
+            buildThongKeSheet(recordsToExport);
 
             if (!exportContext?.rawMode) {
                         // Với mỗi nhóm (correct/over/under), xử lý sheet tổng hợp và các phụ lục chi tiết
@@ -13797,8 +14349,8 @@ window.BQPValidation = (function () {
                     errSheet.getColumn(7).width = 50;
                 }
             } else {
-                // rawMode: chỉ giữ lại 6 sheet I, I.1-I.5; xóa tất cả còn lại
-                const keepSheets = new Set(['Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']);
+                // rawMode: giữ sheet tổng hợp/thống kê và 6 sheet I, I.1-I.5; xóa tất cả còn lại
+                const keepSheets = new Set(['Thống kê', 'Tổng hợp', 'Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']);
                 const sheetsToRemove = [];
                 exportWb.eachSheet(ws => { if (!keepSheets.has(ws.name)) sheetsToRemove.push(ws); });
                 sheetsToRemove.forEach(ws => exportWb.removeWorksheet(ws.id));
@@ -13806,8 +14358,9 @@ window.BQPValidation = (function () {
 
             // Sắp xếp thứ tự các sheet theo chuẩn logic báo cáo BQP
             const sheetPriority = exportContext?.rawMode
-                ? ['Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']
+                ? ['Thống kê', 'Tổng hợp', 'Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3', 'Phụ lục I.4', 'Phụ lục I.5']
                 : [
+                    'Thống kê', 'Tổng hợp',
                     'Phụ lục I', 'Phụ lục I.1', 'Phụ lục I.2', 'Phụ lục I.3',
                     'Phụ lục II', 'Phụ lục II.1', 'Phụ lục II.2', 'Phụ lục II.3',
                     'Phụ lục III', 'Phụ lục III.1', 'Phụ lục III.2', 'Phụ lục III.3',
@@ -14506,14 +15059,18 @@ window.ValidationUI = {
                             // Nhận diện dòng Đơn vị (I, II...)
                             const isRoman2 = BQPNormalization.isRomanNumeral(sttRaw);
                             const isUnitMarker2 = isRoman2 || /^(?:ĐV|DV)$/i.test(sttRaw.trim());
-                            if (isUnitMarker2 && !capBac && !hasDateOrMoney && hoten && !BQPNormalization.isTotal(hoten)) {
+                            const isMergedC4 = c4 ? c4.isMerged : false;
+                            // ExcelJS resolves merged slave cells to the master value: when the unit-name
+                            // cell (col 2) merges horizontally into the capBac cell (col 4), capBac and
+                            // txt3 appear non-empty even though they carry no real data.  Catch this by:
+                            // Roman/ĐV marker + isMergedC4 → treat as a unit-header row regardless.
+                            if ((isUnitMarker2 && !capBac && !hasDateOrMoney && hoten && !BQPNormalization.isTotal(hoten)) ||
+                                (isUnitMarker2 && isMergedC4 && hoten && !BQPNormalization.isTotal(hoten))) {
                                 currentUnit = BQPNormalization.normalizeUnitName(hoten);
                                 currentUnitRoman = isRoman2 ? sttRaw.trim().toUpperCase() : sttRaw.trim();
                                 currentGroup = currentUnit;
                                 continue;
                             }
-
-                            const isMergedC4 = c4 ? c4.isMerged : false;
                             let isSoldier = !BQPNormalization.isCategory(hoten) && !isUnitMarker2 && !BQPNormalization.isTotal(hoten) && !!capBac && !isMergedC4;
                             if (!isSoldier) {
                                 if (!BQPNormalization.isCategory(hoten) && !BQPNormalization.isTotal(hoten) && isNaN(hoten)) {
@@ -14614,6 +15171,7 @@ window.ValidationUI = {
                                 capBac: capBac,
                                 chucVu: chucVu,
                                 ngaySinh: ngaySinh,
+                                ngaySinhRaw: txt3,
                                 nhapNgu: nhapNgu,
                                 sapNhap: sapNhap,
                                 thoiDiemNghi: thoiDiemNghi,
@@ -14879,7 +15437,7 @@ window.ValidationUI = {
                     statusBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:4px; font-size:11.5px; font-weight:600; background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0;">Đạt chuẩn</span>`;
                 }
 
-                let nsStr = BQPValidation.formatDate(r.ngaySinh) || '---';
+                let nsStr = r.ngaySinhRaw || BQPValidation.formatDate(r.ngaySinh) || '---';
                 let nnStr = BQPValidation.formatDate(r.nhapNgu) || '---';
 
                 let cellValHelper = (val) => {
@@ -15070,7 +15628,7 @@ window.ValidationUI = {
             }
         }
 
-        let dNgaySinh = BQPValidation.formatDate(r.ngaySinh) || '---';
+        let dNgaySinh = r.ngaySinhRaw || BQPValidation.formatDate(r.ngaySinh) || '---';
         let dNhapNgu = BQPValidation.formatDate(r.nhapNgu) || '---';
         let dSapNhap = BQPValidation.formatDate(r.sapNhap) || '---';
         let dNghi = BQPValidation.formatDate(r.thoiDiemNghi) || '---';
@@ -15455,8 +16013,9 @@ window.ValidationUI = {
             capBac: r.capBac || (r.input && r.input.capBac) || '',
             position: r.chucVu || (r.input && r.input.chucVu) || '',
             chucVu: r.chucVu || (r.input && r.input.chucVu) || '',
-            birthDate: birthDate,
+            birthDate: (r.ngaySinhRaw && /^\d{1,2}[\/\-]\d{4}\D/.test(String(r.ngaySinhRaw).trim())) ? String(r.ngaySinhRaw).trim() : birthDate,
             ngaySinh: birthDate,
+            ngaySinhRaw: r.ngaySinhRaw || null,
             enlistmentDate: enlistDate,
             nhapNgu: enlistDate,
             mergerDate: mergerDate,
@@ -15573,8 +16132,9 @@ window.ValidationUI = {
             capBac: r.capBac || (r.input && r.input.capBac) || '',
             position: r.chucVu || (r.input && r.input.chucVu) || '',
             chucVu: r.chucVu || (r.input && r.input.chucVu) || '',
-            birthDate: birthDate,
+            birthDate: (r.ngaySinhRaw && /^\d{1,2}[\/\-]\d{4}\D/.test(String(r.ngaySinhRaw).trim())) ? String(r.ngaySinhRaw).trim() : birthDate,
             ngaySinh: birthDate,
+            ngaySinhRaw: r.ngaySinhRaw || null,
             enlistmentDate: enlistDate,
             nhapNgu: enlistDate,
             mergerDate: mergerDate,
@@ -16053,6 +16613,7 @@ window.ValidationUI = {
                 capBac: r.capBac || '',
                 chucVu: r.chucVu || '',
                 ngaySinh: BQPValidation.formatDate(r.ngaySinh),
+                ngaySinhRaw: r.ngaySinhRaw || null,
                 nhapNgu: BQPValidation.formatDate(r.nhapNgu),
                 sapNhap: BQPValidation.formatDate(r.sapNhap),
                 thoiDiemNghi: BQPValidation.formatDate(r.thoiDiemNghi),
@@ -16338,8 +16899,6 @@ if (typeof module !== 'undefined' && module.exports) {
         ExcelParser: (typeof BQPValidation !== 'undefined' && BQPValidation) ? BQPValidation.ExcelParser : null
     };
 }
-
-
 </script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import java.util.Date;
 public class PLI3Calculator {
 
     public static PLI3ExpectedResult calculateExpected(PhuLucI3 data) {
-        int tran = getTran(data.getCapBac(), data.getChucVu());
+        int tran = getTran(data.getCapBac(), data.getChucVu(), data.isNu());
         
         BigDecimal rawCot10 = BigDecimal.ZERO;
         BigDecimal rawCot11 = BigDecimal.ZERO;
@@ -85,6 +85,10 @@ public class PLI3Calculator {
     
     public static int getTran(String capBac, String chucVu) {
         return MilitaryRankHelper.getTran(capBac, chucVu);
+    }
+
+    public static int getTran(String capBac, String chucVu, boolean isNu) {
+        return MilitaryRankHelper.getTran(capBac, chucVu, isNu);
     }
 
 
