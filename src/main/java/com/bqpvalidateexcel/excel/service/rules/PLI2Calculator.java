@@ -11,7 +11,7 @@ public class PLI2Calculator {
 
     public static PLI2ExpectedResult calculateExpected(PhuLucI2 data) {
         // Trần quân hàm
-        int tran = getTran(data.getCapBac(), data.getChucVu());
+        int tran = getTran(data.getCapBac(), data.getChucVu(), data.isNu());
 
         // Tuổi đời còn lại = (trần quân hàm + Cột 2) - Cột 8
         int rawThangConLai = 0;
@@ -129,6 +129,10 @@ public class PLI2Calculator {
 
     public static int getTran(String capBac, String chucVu) {
         return MilitaryRankHelper.getTran(capBac, chucVu);
+    }
+
+    public static int getTran(String capBac, String chucVu, boolean isNu) {
+        return MilitaryRankHelper.getTran(capBac, chucVu, isNu);
     }
 
 

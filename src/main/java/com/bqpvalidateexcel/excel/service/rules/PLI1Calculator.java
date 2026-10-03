@@ -10,7 +10,7 @@ import java.util.Date;
 public class PLI1Calculator {
 
     public static PLI1ExpectedResult calculateExpected(PhuLucI1 data) {
-        int tran = getTran(data.getCapBac(), data.getChucVu());
+        int tran = getTran(data.getCapBac(), data.getChucVu(), data.isNu());
         int rawCot10 = 0;
         if (tran > 0 && data.getNgaySinh() != null && data.getThoiDiemNghiHuuHuongTroCap() != null) {
             java.util.Calendar calDob = java.util.Calendar.getInstance();
@@ -40,8 +40,9 @@ public class PLI1Calculator {
         boolean c11Valid = (actualC11 != null && (isEqual(actualC11, rawExp11) || (rawCot10 >= 60 && isEqual(actualC11, BigDecimal.valueOf(5)))));
         BigDecimal exp11 = c11Valid ? actualC11 : rawExp11;
 
-        int monthsC12 = calcThang(data.getThoiDiemNghiHuuHuongTroCap(), data.getNhapNgu());
-        BigDecimal rawExp12 = calcNamLamTron(monthsC12);
+        int monthsC12 = calcThang(data.getThoiDiemNghiHuuHuongTroCap(), data.getNhapNgu()) - 1;
+        if (monthsC12 < 0) monthsC12 = 0;
+        BigDecimal rawExp12 = calcNamBHXH(monthsC12);
         BigDecimal actualC12 = data.getSoNamCongTacDongBHXHTheoThongTu();
         boolean c12Valid = (actualC12 != null && isEqual(actualC12, rawExp12));
         BigDecimal exp12 = c12Valid ? actualC12 : rawExp12;
@@ -163,9 +164,23 @@ public class PLI1Calculator {
         if (rem <= 6) return BigDecimal.valueOf(years).add(BigDecimal.valueOf(0.5));
         return BigDecimal.valueOf(years).add(BigDecimal.ONE);
     }
-    
+
+    // Làm tròn số năm công tác đóng BHXH: < 6 tháng dư +0.5, >= 6 tháng dư +1
+    private static BigDecimal calcNamBHXH(int thang) {
+        if (thang <= 0) return BigDecimal.ZERO;
+        int years = thang / 12;
+        int rem = thang % 12;
+        if (rem == 0) return BigDecimal.valueOf(years);
+        if (rem < 6) return BigDecimal.valueOf(years).add(BigDecimal.valueOf(0.5));
+        return BigDecimal.valueOf(years).add(BigDecimal.ONE);
+    }
+
     public static int getTran(String capBac, String chucVu) {
         return MilitaryRankHelper.getTran(capBac, chucVu);
+    }
+
+    public static int getTran(String capBac, String chucVu, boolean isNu) {
+        return MilitaryRankHelper.getTran(capBac, chucVu, isNu);
     }
 
 

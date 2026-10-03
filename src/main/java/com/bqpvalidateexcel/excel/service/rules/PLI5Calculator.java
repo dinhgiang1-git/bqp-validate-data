@@ -61,8 +61,9 @@ public class PLI5Calculator {
         double tiLeC11 = (rawC11 > 1.0) ? (rawC11 / 100.0) : rawC11;
         BigDecimal cot18 = base14_15_16.multiply(BigDecimal.valueOf(tiLeC11)).setScale(0, RoundingMode.HALF_UP);
 
-        // Cột 19 = 25% * (Cột 14 + Cột 15 + Cột 16)
-        BigDecimal cot19 = base14_15_16.multiply(BigDecimal.valueOf(0.25)).setScale(0, RoundingMode.HALF_UP);
+        // Cột 19 = 25% * (Cột 13 + Cột 14 + Cột 15 + Cột 17)
+        BigDecimal base13_14_15_17 = cot13.add(cot14).add(cot15).add(cot17);
+        BigDecimal cot19 = base13_14_15_17.multiply(BigDecimal.valueOf(0.25)).setScale(0, RoundingMode.HALF_UP);
 
         // Cột 20 = Cột 12 * (Cột 14 + Cột 15 + Cột 16)
         double rawC12 = data.getTiLePhuCapDacThu() != null ? data.getTiLePhuCapDacThu() : 0.0;

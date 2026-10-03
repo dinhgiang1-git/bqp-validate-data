@@ -44,10 +44,14 @@ public class ExcelRowParsePLI2 {
         int c17 = getCol(colMap, 17);
         int c18 = getCol(colMap, 18);
 
+        String ngaySinhRaw = ExcelParserUtils.getString(row, c3, formulaEvaluator);
+        boolean isNu = MilitaryRankHelper.detectIsNu(ngaySinhRaw);
+
         PhuLucI2 data = PhuLucI2.builder()
                 .rowIndex(rowIndex)
                 .hoTen(ExcelParserUtils.getString(row, c2, formulaEvaluator))
                 .ngaySinh(ExcelParserUtils.getDate(row, c3, formulaEvaluator))
+                .isNu(isNu)
                 .capBac(ExcelParserUtils.getString(row, c4, formulaEvaluator))
                 .chucVu(ExcelParserUtils.getString(row, c5, formulaEvaluator))
                 .nhapNgu(ExcelParserUtils.getDate(row, c6, formulaEvaluator))

@@ -534,7 +534,7 @@ public class ExcelValidationService {
                 addError(row, colMap.getOrDefault(11, 11), "Cột 11. Kết quả đúng: " + c11Fmt + ". Công thức: Cột 10 / 12 (làm tròn: <= 0,5 = 0,5; > 0,5 = 1) (VD: " + exp.getCot10() + " / 12 = " + c11Fmt + " năm)", errorDetails, redFont, redStyleCache);
             }
             if (data.getSoNamCongTacDongBHXHTheoThongTu() != null && !isEqualTime(exp.getCot12(), data.getSoNamCongTacDongBHXHTheoThongTu())) {
-                addError(row, colMap.getOrDefault(12, 12), "Cột 12. Kết quả đúng: " + c12Fmt + ". Công thức: Cột 8 - Cột 5 (làm tròn: <= 6 tháng + 0,5; > 6 tháng + 1) (VD: Khoảng cách từ " + nnStr + " đến " + retStr + " = " + c12Fmt + " năm)", errorDetails, redFont, redStyleCache);
+                addError(row, colMap.getOrDefault(12, 12), "Cột 12. Kết quả đúng: " + c12Fmt + ". Công thức: (Cột 8 - 1 tháng) - Cột 6 Nhập ngũ (làm tròn: < 6 tháng + 0,5; >= 6 tháng + 1) (VD: Khoảng cách từ " + nnStr + " đến " + retStr + " - 1 tháng = " + c12Fmt + " năm)", errorDetails, redFont, redStyleCache);
             }
 
             int timeDiff = 0;
@@ -1267,9 +1267,9 @@ public class ExcelValidationService {
             checkColWithLabel(row, colMap.getOrDefault(18, 17), "Cột 18", data.getPhuCapTrachNhiemNghe(), exp.getCot18(),
                     "Cột 11 * (Cột 14 + Cột 15 + Cột 16)", errorDetails, redFont, redStyleCache);
 
-            // Cột 19 = 25% * (Cột 14 + Cột 15 + Cột 16)
+            // Cột 19 = 25% * (Cột 13 + Cột 14 + Cột 15 + Cột 17)
             checkColWithLabel(row, colMap.getOrDefault(19, 18), "Cột 19", data.getPhuCapCongVu(), exp.getCot19(),
-                    "25% * (Cột 14 + Cột 15 + Cột 16)", errorDetails, redFont, redStyleCache);
+                    "25% * (Cột 13 + Cột 14 + Cột 15 + Cột 17)", errorDetails, redFont, redStyleCache);
 
             // Cột 20 = Cột 12 * (Cột 14 + Cột 15 + Cột 16)
             checkColWithLabel(row, colMap.getOrDefault(20, 19), "Cột 20", data.getPhuCapDacThu(), exp.getCot20(),
